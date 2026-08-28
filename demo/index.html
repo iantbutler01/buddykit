@@ -31,6 +31,12 @@
   .minicard { background: var(--card); border: 1px solid var(--hairline); border-radius: 12px; padding: .9rem; display: flex; flex-direction: column; align-items: center; gap: .5rem; }
   .minicard canvas { border-radius: 8px; }
   .minicard span { font-size: .72rem; color: var(--ink-soft); }
+  .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem 1.2rem; padding: .9rem; border-top: 1px solid var(--hairline); background: var(--card); }
+  .sl { display: flex; align-items: center; gap: .55rem; font-size: .74rem; color: var(--ink-soft); }
+  .sl label { width: 4.6rem; font-weight: 600; letter-spacing: .02em; }
+  .sl input[type=range] { flex: 1; accent-color: var(--accent); }
+  .sl output { width: 2.2rem; text-align: right; font-family: var(--mono); font-size: .7rem; }
+  .resetrow { padding: .6rem .9rem .9rem; background: var(--card); border-radius: 0 0 16px 16px; }
 </style>
 </head>
 <body>
@@ -76,6 +82,8 @@
         <button class="th" data-v="signal">signal</button>
       </div>
     </div>
+    <div class="sliders" id="sliders"></div>
+    <div class="resetrow"><button id="reset">reset tuning</button> <button id="copycfg">copy config</button></div>
   </div>
 
   <div class="row" id="minis"></div>
@@ -105,6 +113,50 @@
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
   press(".th", (v) => buddy.setTheme(v));
   document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
+
+  // ---- tuning sliders → configure() ----
+  const TUNING = [
+    ["scale", 0.4, 1.6], ["plateSize", 0.4, 1.8], ["coreSize", 0.5, 1.5],
+    ["eyeSize", 0.5, 1.8], ["glow", 0, 2.5],
+    ["bob", 0, 2.5], ["tiltiness", 0, 2.5], ["spread", 0, 2],
+    ["speed", 0.2, 2.5], ["blinkRate", 0, 3], ["glanceRate", 0, 3],
+    ["trust", 0, 1],
+  ];
+  const sliders = document.getElementById("sliders");
+  const inputs = {};
+  for (const [key, min, max] of TUNING) {
+    const row = document.createElement("div");
+    row.className = "sl";
+    const lab = document.createElement("label");
+    lab.textContent = key;
+    const inp = document.createElement("input");
+    inp.type = "range"; inp.min = min; inp.max = max; inp.step = 0.01;
+    inp.value = buddy.getConfig()[key];
+    const out = document.createElement("output");
+    out.textContent = Number(inp.value).toFixed(2);
+    inp.addEventListener("input", () => {
+      out.textContent = Number(inp.value).toFixed(2);
+      buddy.configure({ [key]: parseFloat(inp.value) });
+    });
+    row.append(lab, inp, out);
+    sliders.appendChild(row);
+    inputs[key] = [inp, out];
+  }
+  document.getElementById("reset").addEventListener("click", () => {
+    const patch = {};
+    for (const [key] of TUNING) {
+      const dv = key === "trust" ? 0.35 : 1;
+      patch[key] = dv;
+      inputs[key][0].value = dv;
+      inputs[key][1].textContent = dv.toFixed(2);
+    }
+    buddy.configure(patch);
+  });
+  document.getElementById("copycfg").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(JSON.stringify(buddy.getConfig(), null, 2));
+    document.getElementById("copycfg").textContent = "copied ✓";
+    setTimeout(() => (document.getElementById("copycfg").textContent = "copy config"), 1200);
+  });
 
   // mini gallery: every family as a small always-idle buddy (distinct seeds)
   const minis = document.getElementById("minis");

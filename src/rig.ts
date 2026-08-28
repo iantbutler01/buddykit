@@ -3,22 +3,21 @@
  * (visual-spec artifact §01, 2026-08-28). Frontal 2D emblem, spring motion,
  * staggered choreography, lens eye with aperture blinks + saccades, body
  * language (hover bob, curious tilts, 360 spin on flare).
+ *
+ * All tuning flows through BuddyConfig — flat multipliers where 1 is the
+ * approved reference feel.
  */
 import { Spring } from "./spring";
 import { BuddyTheme, getTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, BuddyState, BuddyEvent } from "./states";
 import { CoreShape, traceCore, traceFacets } from "./cores";
+import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
-export interface BuddyOptions {
-  theme?: string;          // registered theme name (default "ember")
-  family?: FamilyName;     // default "tetra"
-  /** resting shell spread 0..1 — the trust channel (strict .15 / standard .35 / high .55) */
-  trust?: number;
-  core?: CoreShape;       // body shape (default "sphere")
-  seed?: number;           // deterministic per-plate phase jitter
-  reducedMotion?: boolean; // render a single static frame; re-render on changes
-  dprCap?: number;         // default 2
+export interface BuddyMountOptions extends Partial<BuddyConfig> {
+  /** render a single static frame; re-render on changes */
+  reducedMotion?: boolean;
+  dprCap?: number;
   onState?: (s: BuddyState) => void;
 }
 
@@ -26,6 +25,10 @@ export interface BuddyHandle {
   setState(s: BuddyState): void;
   getState(): BuddyState;
   fire(e: BuddyEvent): void;
+  /** live-update any part of the config (identity or tuning) */
+  configure(partial: Partial<BuddyConfig>): void;
+  getConfig(): BuddyConfig;
+  /** sugar for configure({...}) */
   setTheme(name: string): void;
   setFamily(f: FamilyName): void;
   setCore(c: CoreShape): void;
@@ -52,7 +55,7 @@ function mulberry32(seed: number) {
   };
 }
 
-export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): BuddyHandle {
+export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = {}): BuddyHandle {
   const ctx2d = canvas.getContext("2d");
   if (!ctx2d) throw new Error("buddykit: 2d context unavailable");
   const ctx: CanvasRenderingContext2D = ctx2d;
@@ -61,12 +64,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
   const reduced = opts.reducedMotion ??
     (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
-  let theme: BuddyTheme = getTheme(opts.theme ?? "ember");
-  let fam: FamilyName = opts.family ?? "tetra";
-  let core: CoreShape = opts.core ?? "sphere";
-  let rest = opts.trust ?? 0.35;
+  let cfg = resolveConfig(opts);
+  let theme: BuddyTheme = getTheme(cfg.theme);
+  let rand = mulberry32(cfg.seed);
   let state: BuddyState = "idle";
-  const rand = mulberry32(opts.seed ?? 42);
 
   function fit() {
     const w = canvas.clientWidth || canvas.width;
@@ -78,11 +79,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
   const onResize = () => { fit(); if (reduced) renderOnce(); };
   if (typeof addEventListener !== "undefined") addEventListener("resize", onResize);
 
-  // ---- runtime state (exact v3 constants) ----
+  // ---- runtime state (v3 reference constants) ----
   let plates: PlateRt[] = [];
   const bodyTilt = new Spring(0, 60, 8);
   const bodyY = new Spring(0, 90, 11);
-  const gSpread = new Spring(rest, 55, 9);
+  const gSpread = new Spring(cfg.trust, 55, 9);
   const eyeScale = new Spring(1, 140, 11);
   const eyeLid = new Spring(1, 260, 16);
   const eyeX = new Spring(0, 120, 12), eyeY = new Spring(0, 120, 12);
@@ -94,7 +95,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
   let blinkTimer: ReturnType<typeof setTimeout> | null = null;
 
   function buildPlates() {
-    plates = FAMILIES[fam].map((d, i) => ({
+    plates = FAMILIES[cfg.family].map((d, i) => ({
       def: d,
       rad: new Spring(0.001, 95 + i * 6, 11),
       scl: new Spring(0.001, 130, 11),
@@ -119,6 +120,15 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     if (reduced) renderOnce();
   }
 
+  function configure(partial: Partial<BuddyConfig>) {
+    const prev = cfg;
+    cfg = resolveConfig({ ...cfg, ...partial });
+    if (cfg.theme !== prev.theme) theme = getTheme(cfg.theme);
+    if (cfg.seed !== prev.seed) rand = mulberry32(cfg.seed);
+    if (cfg.family !== prev.family || cfg.seed !== prev.seed) buildPlates();
+    if (reduced) renderOnce();
+  }
+
   function poly(c: CanvasRenderingContext2D, pts: [number, number][], r: number) {
     c.beginPath();
     const n = pts.length;
@@ -137,26 +147,27 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
 
   function frame(now: number) {
     if (destroyed) return;
-    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    const dt0 = Math.min((now - last) / 1000, 0.05); last = now;
     if (!visible || (typeof document !== "undefined" && document.hidden)) {
       if (!reduced) raf = requestAnimationFrame(frame);
       return;
     }
+    const dt = dt0 * cfg.speed;   // tempo affects clocks + timers; springs stay physical (dt0)
     t += dt;
 
     const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2 + 4 * DPR;
     const T = theme, S = STATES[state];
-    const R = Math.min(W, H) * 0.16;
+    const R = Math.min(W, H) * 0.16 * cfg.scale;
 
     // ---- personality timers ----
-    nextBlink -= dt;
+    nextBlink -= dt * cfg.blinkRate;
     if (nextBlink <= 0 && state !== "away") {
       eyeLid.set(0);
       nextBlink = 2.8 + rand() * 3.5;
       if (blinkTimer) clearTimeout(blinkTimer);
       blinkTimer = setTimeout(() => eyeLid.set(STATES[state].eyeOpen), 90);
     }
-    nextGlance -= dt;
+    nextGlance -= dt * cfg.glanceRate;
     if (nextGlance <= 0) {
       nextGlance = 1.6 + rand() * 2.8;
       if (state === "idle" || state === "working") {
@@ -167,17 +178,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     nextTilt -= dt;
     if (nextTilt <= 0) {
       nextTilt = 3.5 + rand() * 4;
-      if (state === "idle") bodyTilt.set(spinAccum + (rand() - 0.5) * 0.24);
-      else if (state !== "away") bodyTilt.set(spinAccum + S.tilt);
+      if (state === "idle") bodyTilt.set(spinAccum + (rand() - 0.5) * 0.24 * cfg.tiltiness);
+      else if (state !== "away") bodyTilt.set(spinAccum + S.tilt * cfg.tiltiness);
     }
 
-    // ---- springs ----
-    gSpread.set(rest + S.spread);
+    // ---- springs (physical time) ----
+    gSpread.set(cfg.trust + S.spread * cfg.spread);
     eyeScale.set(S.eye);
     if (state === "away") eyeLid.set(0);
     else if (eyeLid.t !== 0) eyeLid.set(S.eyeOpen);
-    bodyY.set(Math.sin(t * 1.5) * 5 * DPR * S.bob);
-    [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt].forEach((s) => s.step(dt));
+    bodyY.set(Math.sin(t * 1.5) * 5 * DPR * S.bob * cfg.bob);
+    [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt].forEach((s) => s.step(dt0));
 
     // needs_you double-pulse
     let attn = 0;
@@ -190,14 +201,15 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     // working ticks
     if (state === "working" && (!ticks.length || t - ticks[ticks.length - 1] > 1.1)) ticks.push(t);
     ticks = ticks.filter((k) => t - k < 1);
-    if (flareRing >= 0) { flareRing += dt; if (flareRing > 0.8) flareRing = -1; }
+    if (flareRing >= 0) { flareRing += dt0; if (flareRing > 0.8) flareRing = -1; }
 
     ctx.clearRect(0, 0, W, H);
 
     // ---- ambient glow ----
     const eyeOn = eyeScale.p * eyeLid.p;
+    const G = cfg.glow;
     let g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
-    g.addColorStop(0, T.glow + (0.16 + eyeOn * 0.12 + attn * 0.3) + ")");
+    g.addColorStop(0, T.glow + Math.min(1, (0.16 + eyeOn * 0.12 + attn * 0.3) * G) + ")");
     g.addColorStop(1, T.glow + "0)");
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
@@ -205,7 +217,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     const ring = (age: number, life: number, maxR: number, alpha: number) => {
       const q = age / life; if (q < 0 || q > 1) return;
       ctx.beginPath(); ctx.arc(cx, cy + bodyY.p, R * (1.15 + q * maxR), 0, 7);
-      ctx.strokeStyle = T.glow + alpha * (1 - q) + ")";
+      ctx.strokeStyle = T.glow + Math.min(1, alpha * (1 - q) * G) + ")";
       ctx.lineWidth = DPR * 2 * (1 - q) + 0.4;
       ctx.stroke();
     };
@@ -218,15 +230,14 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     ctx.rotate(bodyTilt.p);
 
     // core body — visible in the seams; shape carries the being's build
-    const coreR = R * 0.74;
-    traceCore(ctx, core, coreR);
+    const coreR = R * 0.74 * cfg.coreSize;
+    traceCore(ctx, cfg.core, coreR);
     ctx.fillStyle = T.coreDisc; ctx.fill();
-    traceCore(ctx, core, coreR * 0.98);
-    ctx.strokeStyle = T.glow + (0.28 + eyeOn * 0.2) + ")";
+    traceCore(ctx, cfg.core, coreR * 0.98);
+    ctx.strokeStyle = T.glow + Math.min(1, (0.28 + eyeOn * 0.2) * G) + ")";
     ctx.lineWidth = 1.6 * DPR; ctx.stroke();
-    // polyhedral facet detail (subtle, in glow color)
-    if (traceFacets(ctx, core, coreR * 0.96)) {
-      ctx.strokeStyle = T.glow + (0.12 + eyeOn * 0.1) + ")";
+    if (traceFacets(ctx, cfg.core, coreR * 0.96)) {
+      ctx.strokeStyle = T.glow + Math.min(1, (0.12 + eyeOn * 0.1) * G) + ")";
       ctx.lineWidth = 1 * DPR;
       ctx.stroke();
     }
@@ -236,8 +247,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
       const live = t - p.born > p.delay;
       const wob = Math.sin(t * 1.15 + p.jphase) * 0.035;
       p.rad.set(R * (0.98 + gSpread.p * 1.5) * p.def.d * (1 + (live ? wob : 0)));
-      p.scl.set(R * 0.52 * p.def.s);
-      if (live) { p.rad.step(dt); p.scl.step(dt); }
+      p.scl.set(R * 0.52 * p.def.s * cfg.plateSize);
+      if (live) { p.rad.step(dt0); p.scl.step(dt0); }
       const ang = p.def.a * Math.PI / 180;
       const px = Math.cos(ang) * p.rad.p, py = Math.sin(ang) * p.rad.p;
       ctx.save();
@@ -247,15 +258,12 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
       ctx.shadowColor = T.seam; ctx.shadowBlur = 8 * DPR; ctx.shadowOffsetY = 2.5 * DPR;
       poly(ctx, pts, s * 0.14); ctx.fillStyle = T.face; ctx.fill();
       ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      // two-tone graphic bevel
       ctx.save(); ctx.clip();
       ctx.fillStyle = T.side;
       ctx.fillRect(-s * 1.6, s * 0.02, s * 3.2, s * 1.8);
       ctx.restore();
       poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.edge; ctx.lineWidth = 1.2 * DPR; ctx.stroke();
-      // accent edge-light (accent on edges, never fills)
-      poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.glow + ".35)"; ctx.lineWidth = 2.6 * DPR; ctx.stroke();
-      // hot chevron at outer tip
+      poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.glow + Math.min(1, 0.35 * G) + ")"; ctx.lineWidth = 2.6 * DPR; ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(-s * 0.16, -s * 0.98); ctx.lineTo(0, -s * 1.22); ctx.lineTo(s * 0.16, -s * 0.98);
       ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
@@ -266,23 +274,23 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     if (eyeOn > 0.01) {
       const ex = eyeX.p * coreR * 0.5, ey = eyeY.p * coreR * 0.5;
       const ap = Math.max(0.05, eyeLid.p);
-      const er = coreR * 0.42 * eyeScale.p * (1 + attn * 0.22);
+      const er = coreR * 0.42 * eyeScale.p * cfg.eyeSize * (1 + attn * 0.22);
       ctx.save();
       ctx.translate(ex, ey);
       ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fill();
-      ctx.strokeStyle = T.glow + ".5)"; ctx.lineWidth = 1.4 * DPR; ctx.stroke();
-      ctx.shadowColor = T.glow + ".95)"; ctx.shadowBlur = 22 * DPR * (1 + attn);
+      ctx.strokeStyle = T.glow + Math.min(1, 0.5 * G) + ")"; ctx.lineWidth = 1.4 * DPR; ctx.stroke();
+      ctx.shadowColor = T.glow + Math.min(1, 0.95 * G) + ")"; ctx.shadowBlur = 22 * DPR * (1 + attn) * G;
       ctx.beginPath(); ctx.arc(0, 0, er * 0.72 * ap, 0, 7);
       ctx.strokeStyle = T.eye; ctx.lineWidth = Math.max(1.5, er * 0.16 * ap); ctx.stroke();
-      ctx.shadowBlur = 12 * DPR;
+      ctx.shadowBlur = 12 * DPR * G;
       const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, er * 0.4 * ap);
       g2.addColorStop(0, T.eyeHot); g2.addColorStop(1, T.eye);
       ctx.fillStyle = g2;
       ctx.beginPath(); ctx.arc(0, 0, er * 0.4 * ap, 0, 7); ctx.fill();
       ctx.restore();
     } else if (state === "away") {
-      traceCore(ctx, core, coreR * 0.5);
+      traceCore(ctx, cfg.core, coreR * 0.5);
       ctx.fillStyle = T.glow + ".08)"; ctx.fill();
     }
 
@@ -292,7 +300,6 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
   }
 
   function renderOnce() {
-    // settle springs for a representative static frame
     for (let i = 0; i < 60; i++) {
       [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt].forEach((s) => s.step(1 / 60));
       plates.forEach((p) => { p.rad.step(1 / 60); p.scl.step(1 / 60); });
@@ -314,10 +321,12 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
         if (reduced) renderOnce();
       }
     },
-    setTheme(name: string) { theme = getTheme(name); if (reduced) renderOnce(); },
-    setFamily(f: FamilyName) { fam = f; buildPlates(); if (reduced) renderOnce(); },
-    setCore(c: CoreShape) { core = c; if (reduced) renderOnce(); },
-    setTrust(v: number) { rest = Math.max(0, Math.min(1, v)); if (reduced) renderOnce(); },
+    configure,
+    getConfig: () => ({ ...cfg }),
+    setTheme(name: string) { configure({ theme: name }); },
+    setFamily(f: FamilyName) { configure({ family: f }); },
+    setCore(c: CoreShape) { configure({ core: c }); },
+    setTrust(v: number) { configure({ trust: v }); },
     destroy() {
       destroyed = true;
       cancelAnimationFrame(raf);
@@ -330,7 +339,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
 
 /** Render a static poster PNG of a buddy (for chips, tabs, notifications, avatars). */
 export async function renderPosterPng(
-  opts: BuddyOptions & { size?: number; state?: BuddyState } = {},
+  opts: BuddyMountOptions & { size?: number; state?: BuddyState } = {},
 ): Promise<Blob> {
   const size = opts.size ?? 1024;
   const c = document.createElement("canvas");
@@ -343,3 +352,4 @@ export async function renderPosterPng(
     c.toBlob((b) => (b ? resolve(b) : reject(new Error("buddykit: toBlob failed"))), "image/png"),
   );
 }
+

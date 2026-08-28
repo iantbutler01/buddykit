@@ -6,18 +6,31 @@ a living, state-reactive 2D character. Zero runtime dependencies; canvas-2D spri
 ```ts
 import { mountBuddy } from "buddykit";
 
+// One flat config object. Identity fields + tuning multipliers (1 = reference feel).
 const buddy = mountBuddy(canvasEl, {
-  theme: "ember",     // or "sumi" | "signal" | registerTheme(...) your own
+  // identity
   family: "tetra",    // tetra | octa | ring | petal | shard | prism
+  core: "sphere",     // sphere | d20 | cube | d12 | gem
+  theme: "ember",     // or "sumi" | "signal" | registerTheme(...) your own
   trust: 0.35,        // resting shell spread — strict .15 / standard .35 / high .55
-  seed: 42,           // deterministic personality jitter
+  seed: 42,           // deterministic personality jitter (same seed → same being)
+
+  // tuning — all optional multipliers, 1 = reference, 0.5 = half, 2 = double
+  scale: 1, plateSize: 1, coreSize: 1, eyeSize: 1, glow: 1,
+  bob: 1, tiltiness: 1, spread: 1, speed: 1,
+  blinkRate: 1, glanceRate: 1,
 });
 
-buddy.setState("working");   // idle | listening | working | needs_you | away
-buddy.fire("flare");         // 360 spin + ring, returns to state
-buddy.setTheme("signal");
+buddy.setState("working");        // idle | listening | working | needs_you | away
+buddy.fire("flare");              // 360 spin + ring, returns to state
+buddy.configure({ theme: "signal", bob: 1.4 });  // live-update anything
+const cfg = buddy.getConfig();    // serialize a being — store it, remount it anywhere
 buddy.destroy();
 ```
+
+A buddy **is** its config: `getConfig()` → JSON → `mountBuddy(canvas, cfg)`
+reproduces the identical being (seeded RNG included). The demo's "copy config"
+button hands you the object ready to paste.
 
 Static poster (chips, tabs, notifications):
 

@@ -1,6 +1,8 @@
 export { Spring } from "./spring";
 export { mountBuddy, renderPosterPng } from "./rig";
-export type { BuddyOptions, BuddyHandle } from "./rig";
+export type { BuddyMountOptions, BuddyHandle } from "./rig";
+export { DEFAULT_CONFIG, resolveConfig } from "./config";
+export type { BuddyConfig } from "./config";
 export { registerTheme, getTheme, themeNames } from "./themes";
 export type { BuddyTheme } from "./themes";
 export { FAMILIES, shapePts } from "./families";

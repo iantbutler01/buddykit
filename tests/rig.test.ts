@@ -99,3 +99,20 @@ describe("cores", () => {
     }
   });
 });
+
+describe("config", () => {
+  it("resolves defaults and clamps", async () => {
+    const { resolveConfig, DEFAULT_CONFIG } = await import("../src/config");
+    expect(resolveConfig()).toEqual(DEFAULT_CONFIG);
+    const c = resolveConfig({ trust: 9, glow: -2, family: "petal" });
+    expect(c.trust).toBe(1);
+    expect(c.glow).toBe(0);
+    expect(c.family).toBe("petal");
+    expect(c.bob).toBe(1); // untouched defaults intact
+  });
+  it("all tuning multipliers default to the reference feel (1)", async () => {
+    const { DEFAULT_CONFIG } = await import("../src/config");
+    const tuning = ["scale","plateSize","coreSize","eyeSize","glow","bob","tiltiness","spread","speed","blinkRate","glanceRate"] as const;
+    for (const k of tuning) expect(DEFAULT_CONFIG[k], k).toBe(1);
+  });
+});
