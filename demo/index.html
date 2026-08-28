@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>buddykit — gallery</title>
+<style>
+  :root {
+    --paper: #f7f2ea; --ink: #291f16; --ink-soft: #6b5d4d; --hairline: #e0d5c4;
+    --card: #fffdf9; --accent: #cc7a3a; --mono: ui-monospace, Menlo, monospace;
+    --sys: system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #1d1813; --ink: #ede4d7; --ink-soft: #a2937f; --hairline: #383026; --card: #262019; --accent: #e08b47; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--sys); }
+  .wrap { max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.2rem 5rem; }
+  h1 { font-weight: 750; letter-spacing: -.01em; margin: 0 0 .2rem; }
+  .sub { color: var(--ink-soft); margin: 0 0 1.6rem; }
+  .stage { background: radial-gradient(ellipse at 50% 42%, color-mix(in oklab, var(--card) 88%, var(--accent)) 0%, var(--card) 62%); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; position: relative; }
+  canvas#rig { display: block; width: 100%; height: 420px; }
+  .statebar { position: absolute; top: .8rem; left: .9rem; font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); background: color-mix(in oklab, var(--card) 82%, transparent); padding: .25rem .6rem; border-radius: 8px; border: 1px solid var(--hairline); }
+  .controls { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; padding: .9rem; border-top: 1px solid var(--hairline); background: var(--card); }
+  .g { display: flex; gap: .3rem; align-items: center; flex-wrap: wrap; }
+  .l { font-size: .68rem; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin-right: .2rem; }
+  button { font: 600 .8rem var(--sys); padding: .34rem .7rem; border-radius: 999px; border: 1px solid var(--hairline); background: var(--paper); color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 1rem; margin-top: 1.4rem; flex-wrap: wrap; }
+  .minicard { background: var(--card); border: 1px solid var(--hairline); border-radius: 12px; padding: .9rem; display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+  .minicard canvas { border-radius: 8px; }
+  .minicard span { font-size: .72rem; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>buddykit</h1>
+  <p class="sub">Parametric expressive identity for AI companions. One seed + a handful of traits → a living character.</p>
+
+  <div class="stage">
+    <div class="statebar" id="statebar">state: idle</div>
+    <canvas id="rig"></canvas>
+    <div class="controls">
+      <div class="g"><span class="l">State</span>
+        <button class="st" data-v="idle" aria-pressed="true">idle</button>
+        <button class="st" data-v="listening">listening</button>
+        <button class="st" data-v="working">working</button>
+        <button class="st" data-v="needs_you">needs you</button>
+        <button class="st" data-v="away">away</button>
+        <button id="flare">✦ flare</button>
+      </div>
+      <div class="g"><span class="l">Shell</span>
+        <button class="fam" data-v="tetra" aria-pressed="true">tetra</button>
+        <button class="fam" data-v="octa">octa</button>
+        <button class="fam" data-v="ring">ring</button>
+        <button class="fam" data-v="petal">petal</button>
+        <button class="fam" data-v="shard">shard</button>
+        <button class="fam" data-v="prism">prism</button>
+      </div>
+      <div class="g"><span class="l">Trust</span>
+        <button class="tr" data-v="0.15">strict</button>
+        <button class="tr" data-v="0.35" aria-pressed="true">standard</button>
+        <button class="tr" data-v="0.55">high</button>
+      </div>
+      <div class="g"><span class="l">Theme</span>
+        <button class="th" data-v="ember" aria-pressed="true">ember</button>
+        <button class="th" data-v="sumi">sumi</button>
+        <button class="th" data-v="signal">signal</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row" id="minis"></div>
+</div>
+
+<script type="module">
+  import { mountBuddy } from "../src/index.ts";
+
+  const statebar = document.getElementById("statebar");
+  const buddy = mountBuddy(document.getElementById("rig"), {
+    theme: "ember",
+    family: "tetra",
+    trust: 0.35,
+    seed: 42,
+    onState: (s) => (statebar.textContent = "state: " + s.replace("_", " ")),
+  });
+
+  const press = (sel, cb) => document.querySelectorAll(sel).forEach((b) =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll(sel).forEach((x) => x.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      cb(b.dataset.v);
+    }));
+  press(".st", (v) => buddy.setState(v));
+  press(".fam", (v) => buddy.setFamily(v));
+  press(".tr", (v) => buddy.setTrust(parseFloat(v)));
+  press(".th", (v) => buddy.setTheme(v));
+  document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
+
+  // mini gallery: every family as a small always-idle buddy (distinct seeds)
+  const minis = document.getElementById("minis");
+  for (const fam of ["tetra", "octa", "ring", "petal", "shard", "prism"]) {
+    const card = document.createElement("div");
+    card.className = "minicard";
+    const c = document.createElement("canvas");
+    c.style.width = "120px"; c.style.height = "120px";
+    card.appendChild(c);
+    const label = document.createElement("span");
+    label.textContent = fam;
+    card.appendChild(label);
+    minis.appendChild(card);
+    mountBuddy(c, { family: fam, seed: fam.length * 17, theme: "ember" });
+  }
+</script>
+</body>
+</html>
