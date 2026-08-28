@@ -135,3 +135,20 @@ describe("raw themes", () => {
     expect(resolveTheme(cfg.theme)).toBe(raw);
   });
 });
+
+describe("makeTheme (per-element)", () => {
+  it("layers overrides on a base and converts hex glow/seam", async () => {
+    const { makeTheme, getTheme } = await import("../src/themes");
+    const t = makeTheme({ base: "ember", eye: "#ff3355", glow: "#112233", seam: "#445566" });
+    expect(t.eye).toBe("#ff3355");
+    expect(t.glow).toBe("rgba(17,34,51,");
+    expect(t.seam).toBe("rgba(68,85,102,.28)");
+    expect(t.face).toBe(getTheme("ember").face); // untouched elements inherit base
+  });
+  it("accent implies glow when glow not given; glowToHex round-trips", async () => {
+    const { makeTheme, glowToHex } = await import("../src/themes");
+    const t = makeTheme({ base: "sumi", accent: "#22aa66" });
+    expect(t.glow).toBe("rgba(34,170,102,");
+    expect(glowToHex(t.glow)).toBe("#22aa66");
+  });
+});

@@ -80,10 +80,12 @@
         <button class="th" data-v="ember" aria-pressed="true">ember</button>
         <button class="th" data-v="sumi">sumi</button>
         <button class="th" data-v="signal">signal</button>
-        <input type="color" id="accent" value="#7c5cff" title="custom accent — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
+        <input type="color" id="accent" value="#7c5cff" title="one-color theme — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
+        <button id="palette-toggle" title="per-element colors">🎨 elements</button>
       </div>
     </div>
     <div class="sliders" id="sliders"></div>
+    <div class="sliders" id="palette" style="display:none"></div>
     <div class="resetrow"><button id="reset">reset tuning</button> <button id="copycfg">copy config</button></div>
   </div>
 
@@ -91,7 +93,7 @@
 </div>
 
 <script type="module">
-  import { mountBuddy, themeFromAccent } from "../src/index.ts";
+  import { mountBuddy, themeFromAccent, makeTheme, resolveTheme, glowToHex } from "../src/index.ts";
 
   const statebar = document.getElementById("statebar");
   const buddy = mountBuddy(document.getElementById("rig"), {
@@ -112,10 +114,48 @@
   press(".fam", (v) => buddy.setFamily(v));
   press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
-  press(".th", (v) => buddy.setTheme(v));
+  press(".th", (v) => { buddy.setTheme(v); syncPalette(); });
   document.getElementById("accent").addEventListener("input", (e) => {
     document.querySelectorAll(".th").forEach((x) => x.setAttribute("aria-pressed", "false"));
     buddy.configure({ theme: themeFromAccent(e.target.value) });
+    syncPalette();
+  });
+
+  // ---- per-element palette editor ----
+  const ELEMENTS = [
+    ["face", "shell face"], ["side", "shell shade"], ["edge", "edge line"],
+    ["coreDisc", "core body"], ["eye", "iris"], ["eyeHot", "eye center"],
+    ["accent", "tip accent"], ["glow", "glow"],
+  ];
+  const palette = document.getElementById("palette");
+  const pInputs = {};
+  for (const [key, label] of ELEMENTS) {
+    const row = document.createElement("div");
+    row.className = "sl";
+    const lab = document.createElement("label");
+    lab.textContent = label;
+    const inp = document.createElement("input");
+    inp.type = "color";
+    inp.style.cssText = "flex:1;height:26px;border:1px solid var(--hairline);border-radius:6px;background:var(--paper);padding:1px;cursor:pointer";
+    inp.addEventListener("input", () => {
+      document.querySelectorAll(".th").forEach((x) => x.setAttribute("aria-pressed", "false"));
+      const spec = { base: buddy.getConfig().theme };
+      for (const [k] of ELEMENTS) spec[k] = pInputs[k].value;
+      buddy.configure({ theme: makeTheme(spec) });
+    });
+    row.append(lab, inp);
+    palette.appendChild(row);
+    pInputs[key] = inp;
+  }
+  function syncPalette() {
+    const t = resolveTheme(buddy.getConfig().theme);
+    for (const [k] of ELEMENTS) pInputs[k].value = k === "glow" ? glowToHex(t.glow) : t[k];
+  }
+  syncPalette();
+  document.getElementById("palette-toggle").addEventListener("click", () => {
+    const open = palette.style.display === "none";
+    palette.style.display = open ? "" : "none";
+    if (open) syncPalette();
   });
   document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
 

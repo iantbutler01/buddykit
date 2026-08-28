@@ -91,3 +91,53 @@ export function themeFromAccent(accent: string, opts: { neutral?: "warm" | "cool
     seam: `rgba(${Math.round(a[0] * 0.25)},${Math.round(a[1] * 0.25)},${Math.round(a[2] * 0.25)},.28)`,
   };
 }
+
+/** Per-element color spec — plain hex everywhere; buddykit handles formats. */
+export interface ThemeSpec {
+  /** start from a registered theme name or raw theme (default "ember") */
+  base?: ThemeInput;
+  face?: string;
+  side?: string;
+  edge?: string;
+  coreDisc?: string;
+  eyeHot?: string;
+  eye?: string;
+  accent?: string;
+  /** plain hex — converted to the internal rgba prefix */
+  glow?: string;
+  /** plain hex — converted to a soft rgba shadow */
+  seam?: string;
+}
+
+/** Recover a hex from the internal glow rgba prefix (for UIs editing themes). */
+export function glowToHex(glowPrefix: string): string {
+  const m = glowPrefix.match(/rgba\((\d+),(\d+),(\d+),/);
+  if (!m) return "#000000";
+  return `#${[m[1], m[2], m[3]].map((v) => (+v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Layered per-element theming — plain hex for every element, on any base:
+ *
+ *   makeTheme({ base: "ember", eye: "#ff3355" })            // one-off tweak
+ *   makeTheme({ base: themeFromAccent("#7c5cff"), face: "#ffffff" })
+ *
+ * accent doubles as the default for glow when glow isn't given.
+ */
+export function makeTheme(spec: ThemeSpec = {}): BuddyTheme {
+  const base = resolveTheme(spec.base ?? "ember");
+  const out: BuddyTheme = { ...base };
+  for (const k of ["face", "side", "edge", "coreDisc", "eyeHot", "eye", "accent"] as const) {
+    if (spec[k]) out[k] = spec[k]!;
+  }
+  const glowHex = spec.glow ?? (spec.accent && !spec.glow ? spec.accent : undefined);
+  if (glowHex) {
+    const [r, g, b] = hexToRgb(glowHex);
+    out.glow = `rgba(${r},${g},${b},`;
+  }
+  if (spec.seam) {
+    const [r, g, b] = hexToRgb(spec.seam);
+    out.seam = `rgba(${r},${g},${b},.28)`;
+  }
+  return out;
+}
