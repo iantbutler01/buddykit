@@ -242,58 +242,38 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const bodyR = R * 0.95 * cfg.coreSize;
       // squash couples to the bob for organic weight; away slumps
       const squash = (bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0);
-      // body with belly shade (two-tone like the plates)
-      ctx.shadowColor = T.seam; ctx.shadowBlur = 10 * DPR; ctx.shadowOffsetY = 3 * DPR;
+      // flat saturated body — the accent IS the being (clean, no outline/shading)
+      ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
+      ctx.shadowBlur = 18 * DPR * G;
       traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
-      ctx.fillStyle = T.face; ctx.fill();
-      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      ctx.save();
-      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
-      ctx.clip();
-      ctx.fillStyle = T.side;
-      ctx.fillRect(-bodyR * 2, bodyR * 0.42, bodyR * 4, bodyR * 2);
-      ctx.restore();
-      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
-      ctx.strokeStyle = T.edge; ctx.lineWidth = 1.4 * DPR; ctx.stroke();
-      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
-      ctx.strokeStyle = T.glow + Math.min(1, 0.3 * G) + ")"; ctx.lineWidth = 2.4 * DPR; ctx.stroke();
-
-      // antenna with the accent chevron (species-shared mark)
-      const antX = bodyR * 0.06, antY = -bodyR * (cfg.body === "droplet" ? 1.28 : 1.02) * (1 - squash);
-      ctx.beginPath();
-      ctx.moveTo(antX * 0.4, antY + bodyR * 0.16);
-      ctx.quadraticCurveTo(antX + bodyR * 0.05, antY + bodyR * 0.02, antX + bodyR * 0.02, antY - bodyR * 0.06);
-      ctx.strokeStyle = T.edge; ctx.lineWidth = 1.6 * DPR; ctx.lineCap = "round"; ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(antX - bodyR * 0.055, antY - bodyR * 0.055);
-      ctx.lineTo(antX + bodyR * 0.02, antY - bodyR * 0.115);
-      ctx.lineTo(antX + bodyR * 0.09, antY - bodyR * 0.045);
-      ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
+      ctx.fillStyle = T.accent; ctx.fill();
+      ctx.shadowBlur = 0;
 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p);
         const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
+        const shiftX = cfg.eyeShift * bodyR * 0.3;
         const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
         const closed = state === "away" || ap < 0.12;
         const sleepArc = (er: number) => {
           ctx.beginPath();
           ctx.arc(0, 0, er, 0.15 * Math.PI, 0.85 * Math.PI);
-          ctx.strokeStyle = T.coreDisc; ctx.lineWidth = 2.4 * DPR; ctx.lineCap = "round";
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.6 * DPR; ctx.lineCap = "round";
           ctx.stroke();
         };
         if (cfg.eyes === "googly") {
-          // Doozy-style: big near-white sclera, large pupil chasing the gaze, glint
-          const er = bodyR * 0.26 * wide;
+          // Doozy-style: big near-white sclera, large pupil chasing the gaze, glint.
+          // Overexaggerated by default — the eyes are the only feature, so they carry.
+          const er = bodyR * 0.3 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * bodyR * 0.27 + exOff * 0.6, eyc = -bodyR * 0.16 + eyOff * 0.6;
+            const exc = sgn * bodyR * 0.38 * cfg.eyeSpacing + shiftX + exOff * 0.4, eyc = -bodyR * 0.18 * cfg.eyeRaise + eyOff * 0.4;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(er * 0.8); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
             ctx.fillStyle = "#ffffff"; ctx.fill();
-            ctx.strokeStyle = T.edge; ctx.lineWidth = 1.2 * DPR; ctx.stroke();
             const px = eyeX.p * er * 0.55 + sgn * er * 0.08, py = eyeY.p * er * 0.55 + er * 0.1;
             ctx.beginPath(); ctx.arc(px, py, er * 0.58, 0, 7);
             ctx.fillStyle = T.coreDisc; ctx.fill();
@@ -304,10 +284,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.restore();
           }
         } else if (cfg.eyes === "slit") {
-          // Grok-style minimal: two soft white pills; no outline
-          const eh = bodyR * 0.24 * wide, ew = eh * 0.34;
+          // Grok-style minimal: two soft white pills; no outline. Big by default —
+          // at small sizes undersized slits vanish into the flat body.
+          const eh = bodyR * 0.42 * wide, ew = eh * 0.36;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * bodyR * 0.24 + exOff, eyc = -bodyR * 0.18 + eyOff;
+            const exc = sgn * bodyR * 0.26 * cfg.eyeSpacing + shiftX + exOff, eyc = -bodyR * 0.2 * cfg.eyeRaise + eyOff;
             ctx.save();
             ctx.translate(exc, eyc);
             ctx.rotate(sgn * 0.06);
@@ -322,7 +303,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // glint: original dark pupils + hot sparks
           const er = bodyR * 0.155 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * bodyR * 0.34 + exOff, eyc = -bodyR * 0.12 + eyOff;
+            const exc = sgn * bodyR * 0.34 * cfg.eyeSpacing + shiftX + exOff, eyc = -bodyR * 0.12 * cfg.eyeRaise + eyOff;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(er); ctx.restore(); continue; }

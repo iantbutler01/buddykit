@@ -17,6 +17,7 @@ const buddy = mountBuddy(canvasEl, {
 
   // tuning — all optional multipliers, 1 = reference, 0.5 = half, 2 = double
   scale: 1, plateSize: 1, coreSize: 1, eyeSize: 1, glow: 1,
+  eyeSpacing: 1, eyeRaise: 1, eyeShift: 0,   // blob eye placement (shift -1..1 = off-center glance)
   bob: 1, tiltiness: 1, spread: 1, speed: 1,
   blinkRate: 1, glanceRate: 1,
 });

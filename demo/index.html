@@ -184,7 +184,7 @@
   // ---- tuning sliders → configure() ----
   const TUNING = [
     ["scale", 0.4, 1.6], ["plateSize", 0.4, 1.8], ["coreSize", 0.5, 1.5],
-    ["eyeSize", 0.5, 1.8], ["glow", 0, 2.5],
+    ["eyeSize", 0.5, 1.8], ["eyeSpacing", 0.4, 1.8], ["eyeRaise", -0.5, 2.5], ["eyeShift", -1, 1], ["glow", 0, 2.5],
     ["bob", 0, 2.5], ["tiltiness", 0, 2.5], ["spread", 0, 2],
     ["speed", 0.2, 2.5], ["blinkRate", 0, 3], ["glanceRate", 0, 3],
     ["trust", 0, 1],
@@ -212,7 +212,7 @@
   document.getElementById("reset").addEventListener("click", () => {
     const patch = {};
     for (const [key] of TUNING) {
-      const dv = key === "trust" ? 0.35 : 1;
+      const dv = key === "trust" ? 0.35 : key === "eyeShift" ? 0 : 1;
       patch[key] = dv;
       inputs[key][0].value = dv;
       inputs[key][1].textContent = dv.toFixed(2);

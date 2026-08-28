@@ -38,6 +38,12 @@ export interface BuddyConfig {
   coreSize: number;
   /** lens eye size */
   eyeSize: number;
+  /** blob eye spacing — distance between the two eyes (multiplier) */
+  eyeSpacing: number;
+  /** blob eye vertical placement — how high the eyes ride (multiplier) */
+  eyeRaise: number;
+  /** blob eye lateral bias in body-radius units, -1..1 (Grok's off-center glance look) */
+  eyeShift: number;
   /** glow/bloom intensity */
   glow: number;
 
@@ -72,6 +78,9 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   plateSize: 1,
   coreSize: 1,
   eyeSize: 1,
+  eyeSpacing: 1,
+  eyeRaise: 1,
+  eyeShift: 0,
   glow: 1,
 
   bob: 1,
@@ -87,10 +96,12 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   const cfg = { ...DEFAULT_CONFIG, ...partial };
   cfg.trust = Math.max(0, Math.min(1, cfg.trust));
   for (const k of [
-    "scale", "plateSize", "coreSize", "eyeSize", "glow",
+    "scale", "plateSize", "coreSize", "eyeSize", "eyeSpacing", "glow",
     "bob", "tiltiness", "spread", "speed", "blinkRate", "glanceRate",
   ] as const) {
     cfg[k] = Math.max(0, cfg[k]);
   }
+  cfg.eyeShift = Math.max(-1, Math.min(1, cfg.eyeShift));
+  cfg.eyeRaise = Math.max(-1, Math.min(3, cfg.eyeRaise));  // negative = below center
   return cfg;
 }
