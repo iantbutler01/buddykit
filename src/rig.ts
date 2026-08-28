@@ -242,11 +242,18 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     traceCore(ctx, cfg.core, coreR * 0.98);
     ctx.strokeStyle = T.glow + Math.min(1, (0.28 + eyeOn * 0.2) * G) + ")";
     ctx.lineWidth = 1.6 * DPR; ctx.stroke();
+    const socketR = coreR * 0.42 * cfg.eyeSize;  // fixed lens housing, part of the core
+    ctx.save();
+    // clip = core body minus the socket disc (evenodd) → facet lines terminate at the housing
+    traceCore(ctx, cfg.core, coreR);
+    ctx.arc(0, 0, socketR, 0, Math.PI * 2, true);
+    ctx.clip("evenodd");
     if (traceFacets(ctx, cfg.core, coreR * 0.96)) {
       ctx.strokeStyle = T.glow + Math.min(1, (0.12 + eyeOn * 0.1) * G) + ")";
       ctx.lineWidth = 1 * DPR;
       ctx.stroke();
     }
+    ctx.restore();
 
     // ---- plates ----
     plates.forEach((p, i) => {
@@ -278,22 +285,23 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
     // ---- the eye: concentric lens, aperture blink ----
     if (eyeOn > 0.01) {
-      const ex = eyeX.p * coreR * 0.18, ey = eyeY.p * coreR * 0.18;
       const ap = Math.max(0.05, eyeLid.p);
-      const er = coreR * 0.42 * eyeScale.p * cfg.eyeSize * (1 + attn * 0.22);
+      // housing is fixed and concentric with the core; expression lives in the
+      // iris (scale within the socket, capped so it never escapes the housing)
+      const er = socketR;
+      const iris = Math.min(1.0, eyeScale.p * (1 + attn * 0.22));
       ctx.save();
-      ctx.translate(ex, ey);
       ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fill();
       ctx.strokeStyle = T.glow + Math.min(1, 0.5 * G) + ")"; ctx.lineWidth = 1.4 * DPR; ctx.stroke();
       ctx.shadowColor = T.glow + Math.min(1, 0.95 * G) + ")"; ctx.shadowBlur = 22 * DPR * (1 + attn) * G;
-      ctx.beginPath(); ctx.arc(0, 0, er * 0.72 * ap, 0, 7);
-      ctx.strokeStyle = T.eye; ctx.lineWidth = Math.max(1.5, er * 0.16 * ap); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, er * 0.72 * ap * iris, 0, 7);
+      ctx.strokeStyle = T.eye; ctx.lineWidth = Math.max(1.5, er * 0.16 * ap * iris); ctx.stroke();
       ctx.shadowBlur = 12 * DPR * G;
-      const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, er * 0.4 * ap);
+      const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, er * 0.4 * ap * iris);
       g2.addColorStop(0, T.eyeHot); g2.addColorStop(1, T.eye);
       ctx.fillStyle = g2;
-      ctx.beginPath(); ctx.arc(0, 0, er * 0.4 * ap, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, 0, er * 0.4 * ap * iris, 0, 7); ctx.fill();
       ctx.restore();
     } else if (state === "away") {
       traceCore(ctx, cfg.core, coreR * 0.5);
