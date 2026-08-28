@@ -65,6 +65,15 @@
         <button class="bo" data-v="droplet">droplet</button>
         <button class="bo" data-v="bean">bean</button>
         <button class="bo" data-v="pebble">pebble</button>
+        <button class="bo" data-v="squircle">squircle</button>
+        <button class="bo" data-v="tri">tri</button>
+        <button class="bo" data-v="cloud">cloud</button>
+        <button class="bo" data-v="hexy">hexy</button>
+      </div>
+      <div class="g"><span class="l">Eyes</span>
+        <button class="ey" data-v="googly" aria-pressed="true">googly</button>
+        <button class="ey" data-v="slit">slit</button>
+        <button class="ey" data-v="glint">glint</button>
       </div>
       <div class="g"><span class="l">Shell</span>
         <button class="fam" data-v="tetra" aria-pressed="true">tetra</button>
@@ -123,6 +132,7 @@
   press(".st", (v) => buddy.setState(v));
   press(".sp", (v) => buddy.configure({ species: v }));
   press(".bo", (v) => buddy.configure({ body: v }));
+  press(".ey", (v) => buddy.configure({ eyes: v }));
   press(".fam", (v) => buddy.setFamily(v));
   press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
@@ -217,17 +227,17 @@
 
   // mini gallery: every family as a small always-idle buddy (distinct seeds)
   const minis = document.getElementById("minis");
-  for (const b of ["round", "droplet", "bean", "pebble"]) {
+  for (const [b, ey] of [["round","googly"],["droplet","slit"],["bean","googly"],["squircle","slit"],["cloud","googly"],["tri","glint"]]) {
     const card = document.createElement("div");
     card.className = "minicard";
     const c = document.createElement("canvas");
     c.style.width = "120px"; c.style.height = "120px";
     card.appendChild(c);
     const label = document.createElement("span");
-    label.textContent = "blob · " + b;
+    label.textContent = "blob · " + b + " · " + ey;
     card.appendChild(label);
     minis.appendChild(card);
-    mountBuddy(c, { species: "blob", body: b, seed: b.length * 31, theme: "ember" });
+    mountBuddy(c, { species: "blob", body: b, eyes: ey, seed: b.length * 31, theme: "ember" });
   }
   for (const fam of ["tetra", "octa", "ring", "petal", "shard", "prism"]) {
     const card = document.createElement("div");

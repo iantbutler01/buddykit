@@ -157,10 +157,20 @@ describe("blob species", () => {
   it("ships four bodies and species defaults to emblem (back-compat)", async () => {
     const { BLOB_BODIES } = await import("../src/blob");
     const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
-    expect(BLOB_BODIES).toEqual(["round", "droplet", "bean", "pebble"]);
+    expect(BLOB_BODIES).toEqual(["round", "droplet", "bean", "pebble", "squircle", "tri", "cloud", "hexy"]);
     expect(DEFAULT_CONFIG.species).toBe("emblem");
     const c = resolveConfig({ species: "blob", body: "bean" });
     expect(c.species).toBe("blob");
     expect(c.body).toBe("bean");
+  });
+});
+
+describe("blob eyes", () => {
+  it("three styles, googly default", async () => {
+    const { BLOB_EYES } = await import("../src/blob");
+    const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
+    expect(BLOB_EYES).toEqual(["googly", "slit", "glint"]);
+    expect(DEFAULT_CONFIG.eyes).toBe("googly");
+    expect(resolveConfig({ eyes: "slit" }).eyes).toBe("slit");
   });
 });
