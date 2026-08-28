@@ -75,7 +75,9 @@ function buildD12(): CoreDef {
 
 function buildGem(): CoreDef {
   const oct = ngon(8, -Math.PI / 2);
-  const table = ngon(8, -Math.PI / 2).map(([x, y]) => [x * 0.55, y * 0.55 - 0.12] as [number, number]);
+  // frontal read: the table is concentric with the girdle — no tilt offset,
+  // so the crown facets converge on the socket like every other core
+  const table = ngon(8, -Math.PI / 2).map(([x, y]) => [x * 0.55, y * 0.55] as [number, number]);
   const facets: [number, number, number, number][] = [];
   for (let i = 0; i < 8; i++) {
     const a = table[i], b = table[(i + 1) % 8];
