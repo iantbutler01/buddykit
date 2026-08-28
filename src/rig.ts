@@ -225,9 +225,15 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     if (flareRing >= 0) ring(flareRing, 0.8, 2.2, 0.85);
 
     // ---- whole body ----
+    // The eye and body are one unit: the body turns toward the gaze
+    // (rotation from gaze-x, dip from gaze-y); the eye keeps only a small
+    // residual travel so it never slides independently of the facets.
+    const coreRPre = R * 0.74 * cfg.coreSize;
+    const gazeRot = eyeX.p * 0.16;
+    const gazeDip = eyeY.p * coreRPre * 0.22;
     ctx.save();
-    ctx.translate(cx, cy + bodyY.p);
-    ctx.rotate(bodyTilt.p);
+    ctx.translate(cx, cy + bodyY.p + gazeDip);
+    ctx.rotate(bodyTilt.p + gazeRot);
 
     // core body — visible in the seams; shape carries the being's build
     const coreR = R * 0.74 * cfg.coreSize;
@@ -272,7 +278,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
     // ---- the eye: concentric lens, aperture blink ----
     if (eyeOn > 0.01) {
-      const ex = eyeX.p * coreR * 0.5, ey = eyeY.p * coreR * 0.5;
+      const ex = eyeX.p * coreR * 0.18, ey = eyeY.p * coreR * 0.18;
       const ap = Math.max(0.05, eyeLid.p);
       const er = coreR * 0.42 * eyeScale.p * cfg.eyeSize * (1 + attn * 0.22);
       ctx.save();
