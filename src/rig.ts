@@ -8,7 +8,7 @@
  * approved reference feel.
  */
 import { Spring } from "./spring";
-import { BuddyTheme, getTheme } from "./themes";
+import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, BuddyState, BuddyEvent } from "./states";
 import { CoreShape, traceCore, traceFacets } from "./cores";
@@ -29,7 +29,7 @@ export interface BuddyHandle {
   configure(partial: Partial<BuddyConfig>): void;
   getConfig(): BuddyConfig;
   /** sugar for configure({...}) */
-  setTheme(name: string): void;
+  setTheme(name: import("./themes").ThemeInput): void;
   setFamily(f: FamilyName): void;
   setCore(c: CoreShape): void;
   setTrust(v: number): void;
@@ -65,7 +65,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   let cfg = resolveConfig(opts);
-  let theme: BuddyTheme = getTheme(cfg.theme);
+  let theme: BuddyTheme = resolveTheme(cfg.theme);
   let rand = mulberry32(cfg.seed);
   let state: BuddyState = "idle";
 
@@ -123,7 +123,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   function configure(partial: Partial<BuddyConfig>) {
     const prev = cfg;
     cfg = resolveConfig({ ...cfg, ...partial });
-    if (cfg.theme !== prev.theme) theme = getTheme(cfg.theme);
+    if (cfg.theme !== prev.theme) theme = resolveTheme(cfg.theme);
     if (cfg.seed !== prev.seed) rand = mulberry32(cfg.seed);
     if (cfg.family !== prev.family || cfg.seed !== prev.seed) buildPlates();
     if (reduced) renderOnce();
@@ -329,7 +329,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     },
     configure,
     getConfig: () => ({ ...cfg }),
-    setTheme(name: string) { configure({ theme: name }); },
+    setTheme(name: import("./themes").ThemeInput) { configure({ theme: name }); },
     setFamily(f: FamilyName) { configure({ family: f }); },
     setCore(c: CoreShape) { configure({ core: c }); },
     setTrust(v: number) { configure({ trust: v }); },

@@ -48,3 +48,46 @@ export function getTheme(name: string): BuddyTheme {
 export function themeNames(): string[] {
   return [...registry.keys()];
 }
+
+/** Accept a registered name or a raw BuddyTheme object. */
+export type ThemeInput = string | BuddyTheme;
+
+export function resolveTheme(input: ThemeInput): BuddyTheme {
+  return typeof input === "string" ? getTheme(input) : input;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mixRgb(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+  return [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t)) as [number, number, number];
+}
+function mix(a: [number, number, number], b: [number, number, number], t: number): string {
+  return `#${mixRgb(a, b, t).map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * One color in → a full grammar-compliant palette out.
+ * Shell faces stay near-neutral (tinted toward the accent), seams stay dark,
+ * the accent carries the eye, edges, and glow.
+ *
+ *   mountBuddy(canvas, { theme: themeFromAccent("#7c5cff") })
+ */
+export function themeFromAccent(accent: string, opts: { neutral?: "warm" | "cool" } = {}): BuddyTheme {
+  const a = hexToRgb(accent);
+  const white: [number, number, number] = [255, 255, 255];
+  const base: [number, number, number] = opts.neutral === "cool" ? [238, 242, 243] : [246, 240, 228];
+  const dark: [number, number, number] = [24, 20, 15];
+  return {
+    face: mix(base, a, 0.05),
+    side: mix(mixRgb(base, [0, 0, 0], 0.12), a, 0.1),
+    edge: mix(mixRgb(base, [0, 0, 0], 0.28), a, 0.15),
+    coreDisc: mix(dark, a, 0.12),
+    eyeHot: mix(white, a, 0.15),
+    eye: mix(a, white, 0.25),
+    accent,
+    glow: `rgba(${a[0]},${a[1]},${a[2]},`,
+    seam: `rgba(${Math.round(a[0] * 0.25)},${Math.round(a[1] * 0.25)},${Math.round(a[2] * 0.25)},.28)`,
+  };
+}

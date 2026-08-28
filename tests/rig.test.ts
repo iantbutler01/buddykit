@@ -116,3 +116,22 @@ describe("config", () => {
     for (const k of tuning) expect(DEFAULT_CONFIG[k], k).toBe(1);
   });
 });
+
+describe("raw themes", () => {
+  it("themeFromAccent builds a grammar-compliant palette from one hex", async () => {
+    const { themeFromAccent } = await import("../src/themes");
+    const t = themeFromAccent("#7c5cff");
+    expect(t.accent).toBe("#7c5cff");
+    expect(t.glow).toMatch(/^rgba\(\d+,\d+,\d+,$/);
+    for (const k of ["face", "side", "edge", "coreDisc", "eyeHot", "eye"] as const) {
+      expect(t[k], k).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+  it("config accepts a raw theme object and resolveTheme passes it through", async () => {
+    const { resolveTheme, themeFromAccent } = await import("../src/themes");
+    const { resolveConfig } = await import("../src/config");
+    const raw = themeFromAccent("#22aa66");
+    const cfg = resolveConfig({ theme: raw });
+    expect(resolveTheme(cfg.theme)).toBe(raw);
+  });
+});

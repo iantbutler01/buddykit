@@ -80,6 +80,7 @@
         <button class="th" data-v="ember" aria-pressed="true">ember</button>
         <button class="th" data-v="sumi">sumi</button>
         <button class="th" data-v="signal">signal</button>
+        <input type="color" id="accent" value="#7c5cff" title="custom accent — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
       </div>
     </div>
     <div class="sliders" id="sliders"></div>
@@ -90,7 +91,7 @@
 </div>
 
 <script type="module">
-  import { mountBuddy } from "../src/index.ts";
+  import { mountBuddy, themeFromAccent } from "../src/index.ts";
 
   const statebar = document.getElementById("statebar");
   const buddy = mountBuddy(document.getElementById("rig"), {
@@ -112,6 +113,10 @@
   press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
   press(".th", (v) => buddy.setTheme(v));
+  document.getElementById("accent").addEventListener("input", (e) => {
+    document.querySelectorAll(".th").forEach((x) => x.setAttribute("aria-pressed", "false"));
+    buddy.configure({ theme: themeFromAccent(e.target.value) });
+  });
   document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
 
   // ---- tuning sliders → configure() ----

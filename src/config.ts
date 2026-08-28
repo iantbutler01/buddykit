@@ -1,5 +1,6 @@
 import type { FamilyName } from "./families";
 import type { CoreShape } from "./cores";
+import type { ThemeInput } from "./themes";
 
 /**
  * The one configuration object. Everything is optional; identity fields have
@@ -14,8 +15,8 @@ export interface BuddyConfig {
   family: FamilyName;
   /** core body shape (default "sphere") */
   core: CoreShape;
-  /** registered theme name (default "ember") */
-  theme: string;
+  /** registered theme name, or a raw BuddyTheme color object (default "ember") */
+  theme: ThemeInput;
   /** resting shell spread 0..1 — trust posture (strict .15 / standard .35 / high .55) */
   trust: number;
   /** deterministic personality jitter (same seed → same being) */
