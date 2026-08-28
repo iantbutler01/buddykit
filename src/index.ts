@@ -7,3 +7,5 @@ export { FAMILIES, shapePts } from "./families";
 export type { FamilyName, PlateDef, ShapeKind } from "./families";
 export { STATES } from "./states";
 export type { BuddyState, BuddyEvent, StateDef } from "./states";
+export { CORES, coreNames, traceCore, traceFacets } from "./cores";
+export type { CoreShape, CoreDef } from "./cores";

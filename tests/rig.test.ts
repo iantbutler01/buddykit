@@ -80,3 +80,22 @@ describe("themes", () => {
     }
   });
 });
+
+describe("cores", () => {
+  it("ships five shapes, outlines normalized to unit radius", async () => {
+    const { CORES, coreNames } = await import("../src/cores");
+    expect(coreNames()).toEqual(["sphere", "d20", "cube", "d12", "gem"]);
+    for (const [name, def] of Object.entries(CORES)) {
+      if (!def.outline) continue; // sphere
+      const maxR = Math.max(...def.outline.map(([x, y]) => Math.hypot(x, y)));
+      expect(maxR, name).toBeCloseTo(1, 5);
+    }
+  });
+  it("polyhedral cores carry facet detail; sphere carries none", async () => {
+    const { CORES } = await import("../src/cores");
+    expect(CORES.sphere.facets.length).toBe(0);
+    for (const n of ["d20", "cube", "d12", "gem"] as const) {
+      expect(CORES[n].facets.length, n).toBeGreaterThan(0);
+    }
+  });
+});

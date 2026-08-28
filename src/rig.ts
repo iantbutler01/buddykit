@@ -8,12 +8,14 @@ import { Spring } from "./spring";
 import { BuddyTheme, getTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, BuddyState, BuddyEvent } from "./states";
+import { CoreShape, traceCore, traceFacets } from "./cores";
 
 export interface BuddyOptions {
   theme?: string;          // registered theme name (default "ember")
   family?: FamilyName;     // default "tetra"
   /** resting shell spread 0..1 — the trust channel (strict .15 / standard .35 / high .55) */
   trust?: number;
+  core?: CoreShape;       // body shape (default "sphere")
   seed?: number;           // deterministic per-plate phase jitter
   reducedMotion?: boolean; // render a single static frame; re-render on changes
   dprCap?: number;         // default 2
@@ -26,6 +28,7 @@ export interface BuddyHandle {
   fire(e: BuddyEvent): void;
   setTheme(name: string): void;
   setFamily(f: FamilyName): void;
+  setCore(c: CoreShape): void;
   setTrust(v: number): void;
   destroy(): void;
 }
@@ -60,6 +63,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
 
   let theme: BuddyTheme = getTheme(opts.theme ?? "ember");
   let fam: FamilyName = opts.family ?? "tetra";
+  let core: CoreShape = opts.core ?? "sphere";
   let rest = opts.trust ?? 0.35;
   let state: BuddyState = "idle";
   const rand = mulberry32(opts.seed ?? 42);
@@ -213,13 +217,19 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     ctx.translate(cx, cy + bodyY.p);
     ctx.rotate(bodyTilt.p);
 
-    // core disc — visible in the seams
+    // core body — visible in the seams; shape carries the being's build
     const coreR = R * 0.74;
-    ctx.beginPath(); ctx.arc(0, 0, coreR, 0, 7);
+    traceCore(ctx, core, coreR);
     ctx.fillStyle = T.coreDisc; ctx.fill();
-    ctx.beginPath(); ctx.arc(0, 0, coreR * 0.98, 0, 7);
+    traceCore(ctx, core, coreR * 0.98);
     ctx.strokeStyle = T.glow + (0.28 + eyeOn * 0.2) + ")";
     ctx.lineWidth = 1.6 * DPR; ctx.stroke();
+    // polyhedral facet detail (subtle, in glow color)
+    if (traceFacets(ctx, core, coreR * 0.96)) {
+      ctx.strokeStyle = T.glow + (0.12 + eyeOn * 0.1) + ")";
+      ctx.lineWidth = 1 * DPR;
+      ctx.stroke();
+    }
 
     // ---- plates ----
     plates.forEach((p, i) => {
@@ -272,7 +282,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
       ctx.beginPath(); ctx.arc(0, 0, er * 0.4 * ap, 0, 7); ctx.fill();
       ctx.restore();
     } else if (state === "away") {
-      ctx.beginPath(); ctx.arc(0, 0, coreR * 0.5, 0, 7);
+      traceCore(ctx, core, coreR * 0.5);
       ctx.fillStyle = T.glow + ".08)"; ctx.fill();
     }
 
@@ -306,6 +316,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyOptions = {}): 
     },
     setTheme(name: string) { theme = getTheme(name); if (reduced) renderOnce(); },
     setFamily(f: FamilyName) { fam = f; buildPlates(); if (reduced) renderOnce(); },
+    setCore(c: CoreShape) { core = c; if (reduced) renderOnce(); },
     setTrust(v: number) { rest = Math.max(0, Math.min(1, v)); if (reduced) renderOnce(); },
     destroy() {
       destroyed = true;

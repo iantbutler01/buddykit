@@ -58,6 +58,13 @@
         <button class="fam" data-v="shard">shard</button>
         <button class="fam" data-v="prism">prism</button>
       </div>
+      <div class="g"><span class="l">Core</span>
+        <button class="co" data-v="sphere" aria-pressed="true">sphere</button>
+        <button class="co" data-v="d20">d20</button>
+        <button class="co" data-v="cube">cube</button>
+        <button class="co" data-v="d12">d12</button>
+        <button class="co" data-v="gem">gem</button>
+      </div>
       <div class="g"><span class="l">Trust</span>
         <button class="tr" data-v="0.15">strict</button>
         <button class="tr" data-v="0.35" aria-pressed="true">standard</button>
@@ -94,6 +101,7 @@
     }));
   press(".st", (v) => buddy.setState(v));
   press(".fam", (v) => buddy.setFamily(v));
+  press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
   press(".th", (v) => buddy.setTheme(v));
   document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
@@ -110,7 +118,7 @@
     label.textContent = fam;
     card.appendChild(label);
     minis.appendChild(card);
-    mountBuddy(c, { family: fam, seed: fam.length * 17, theme: "ember" });
+    mountBuddy(c, { family: fam, seed: fam.length * 17, theme: "ember", core: ["sphere","d20","cube","d12","gem","sphere"][["tetra","octa","ring","petal","shard","prism"].indexOf(fam)] });
   }
 </script>
 </body>
