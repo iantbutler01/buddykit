@@ -12,6 +12,7 @@ import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, BuddyState, BuddyEvent } from "./states";
 import { CoreShape, traceCore, traceFacets } from "./cores";
+import { traceBlob } from "./blob";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
 export interface BuddyMountOptions extends Partial<BuddyConfig> {
@@ -68,6 +69,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   let theme: BuddyTheme = resolveTheme(cfg.theme);
   let rand = mulberry32(cfg.seed);
   let state: BuddyState = "idle";
+  const blobPhase = (opts.seed ?? 42) % 6.283;
 
   function fit() {
     const w = canvas.clientWidth || canvas.width;
@@ -234,6 +236,72 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     ctx.save();
     ctx.translate(cx, cy + bodyY.p + gazeDip);
     ctx.rotate(bodyTilt.p + gazeRot);
+
+    if (cfg.species === "blob") {
+      // ---- blob species: soft body, two eyes, antenna accent ----
+      const bodyR = R * 0.95 * cfg.coreSize;
+      // squash couples to the bob for organic weight; away slumps
+      const squash = (bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0);
+      // body with belly shade (two-tone like the plates)
+      ctx.shadowColor = T.seam; ctx.shadowBlur = 10 * DPR; ctx.shadowOffsetY = 3 * DPR;
+      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
+      ctx.fillStyle = T.face; ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.save();
+      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
+      ctx.clip();
+      ctx.fillStyle = T.side;
+      ctx.fillRect(-bodyR * 2, bodyR * 0.42, bodyR * 4, bodyR * 2);
+      ctx.restore();
+      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
+      ctx.strokeStyle = T.edge; ctx.lineWidth = 1.4 * DPR; ctx.stroke();
+      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
+      ctx.strokeStyle = T.glow + Math.min(1, 0.3 * G) + ")"; ctx.lineWidth = 2.4 * DPR; ctx.stroke();
+
+      // antenna with the accent chevron (species-shared mark)
+      const antX = bodyR * 0.06, antY = -bodyR * (cfg.body === "droplet" ? 1.28 : 1.02) * (1 - squash);
+      ctx.beginPath();
+      ctx.moveTo(antX * 0.4, antY + bodyR * 0.16);
+      ctx.quadraticCurveTo(antX + bodyR * 0.05, antY + bodyR * 0.02, antX + bodyR * 0.02, antY - bodyR * 0.06);
+      ctx.strokeStyle = T.edge; ctx.lineWidth = 1.6 * DPR; ctx.lineCap = "round"; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(antX - bodyR * 0.055, antY - bodyR * 0.055);
+      ctx.lineTo(antX + bodyR * 0.02, antY - bodyR * 0.115);
+      ctx.lineTo(antX + bodyR * 0.09, antY - bodyR * 0.045);
+      ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
+
+      // two eyes: dark pupils + hot glints; lid blinks; shared saccades
+      if (eyeOn > 0.01 || state === "away") {
+        const ap = Math.max(0.06, eyeLid.p);
+        const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
+        const er = bodyR * 0.155 * cfg.eyeSize * Math.min(1.25, eyeScale.p * (1 + attn * 0.18));
+        for (const sgn of [-1, 1]) {
+          const exc = sgn * bodyR * 0.34 + exOff, eyc = -bodyR * 0.12 + eyOff;
+          ctx.save();
+          ctx.translate(exc, eyc);
+          ctx.scale(1, ap);
+          if (state === "away" || ap < 0.12) {
+            // closed: content sleeping arc
+            ctx.beginPath();
+            ctx.arc(0, 0, er, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.strokeStyle = T.coreDisc; ctx.lineWidth = 2.4 * DPR; ctx.lineCap = "round";
+            ctx.scale(1, 1 / Math.max(ap, 0.06));
+            ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
+            ctx.fillStyle = T.coreDisc; ctx.fill();
+            ctx.shadowColor = T.glow + Math.min(1, 0.5 * G) + ")"; ctx.shadowBlur = 8 * DPR * G;
+            ctx.beginPath(); ctx.arc(er * 0.3, -er * 0.32, er * 0.3, 0, 7);
+            ctx.fillStyle = T.eyeHot; ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+      if (!reduced) raf = requestAnimationFrame(frame);
+      return;
+    }
 
     // core body — visible in the seams; shape carries the being's build
     const coreR = R * 0.74 * cfg.coreSize;

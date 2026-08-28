@@ -152,3 +152,15 @@ describe("makeTheme (per-element)", () => {
     expect(glowToHex(t.glow)).toBe("#22aa66");
   });
 });
+
+describe("blob species", () => {
+  it("ships four bodies and species defaults to emblem (back-compat)", async () => {
+    const { BLOB_BODIES } = await import("../src/blob");
+    const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
+    expect(BLOB_BODIES).toEqual(["round", "droplet", "bean", "pebble"]);
+    expect(DEFAULT_CONFIG.species).toBe("emblem");
+    const c = resolveConfig({ species: "blob", body: "bean" });
+    expect(c.species).toBe("blob");
+    expect(c.body).toBe("bean");
+  });
+});

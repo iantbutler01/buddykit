@@ -11,3 +11,5 @@ export { STATES } from "./states";
 export type { BuddyState, BuddyEvent, StateDef } from "./states";
 export { CORES, coreNames, traceCore, traceFacets } from "./cores";
 export type { CoreShape, CoreDef } from "./cores";
+export { BLOB_BODIES, traceBlob } from "./blob";
+export type { BlobBody } from "./blob";

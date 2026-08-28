@@ -1,6 +1,7 @@
 import type { FamilyName } from "./families";
 import type { CoreShape } from "./cores";
 import type { ThemeInput } from "./themes";
+import type { BlobBody } from "./blob";
 
 /**
  * The one configuration object. Everything is optional; identity fields have
@@ -11,8 +12,12 @@ import type { ThemeInput } from "./themes";
  */
 export interface BuddyConfig {
   // ---- identity ----
-  /** shell family (default "tetra") */
+  /** visual species: geometric emblem or soft two-eyed blob (default "emblem") */
+  species: "emblem" | "blob";
+  /** shell family — emblem species (default "tetra") */
   family: FamilyName;
+  /** body form — blob species (default "round") */
+  body: BlobBody;
   /** core body shape (default "sphere") */
   core: CoreShape;
   /** registered theme name, or a raw BuddyTheme color object (default "ember") */
@@ -52,7 +57,9 @@ export interface BuddyConfig {
 }
 
 export const DEFAULT_CONFIG: BuddyConfig = {
+  species: "emblem",
   family: "tetra",
+  body: "round",
   core: "sphere",
   theme: "ember",
   trust: 0.35,
