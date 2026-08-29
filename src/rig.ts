@@ -471,9 +471,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            ctx.rotate(sgn * (0.06 * soft + eyeRot));
             if (closed) { sleepArc(restR * 0.95); ctx.restore(); continue; }
+            // lid closes in screen space regardless of eye rotation —
+            // scale-then-rotate, or a horizontal slit blinks sideways
             ctx.scale(1, ap);
+            ctx.rotate(sgn * (0.06 * soft + eyeRot));
             ctx.beginPath();
             ctx.roundRect(-ew / 2, -eh / 2, ew, eh, rr);
             ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -487,9 +489,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            ctx.rotate(sgn * eyeRot);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, ap);
+            ctx.rotate(sgn * eyeRot);
             ctx.beginPath();
             ctx.roundRect(-er, -er, er * 2, er * 2, rr);
             ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -502,9 +504,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            ctx.rotate(sgn * eyeRot);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, Math.max(0.25, ap));
+            ctx.rotate(sgn * eyeRot);
             ctx.beginPath();
             ctx.arc(0, er * 0.45, er, Math.PI * 1.12, Math.PI * 1.88);
             ctx.strokeStyle = "#ffffff";
