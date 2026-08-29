@@ -9,8 +9,13 @@ import { mountBuddy } from "buddykit";
 // One flat config object. Identity fields + tuning multipliers (1 = reference feel).
 const buddy = mountBuddy(canvasEl, {
   // identity
+  species: "emblem",  // emblem (geometric shell) | blob (soft two-eyed)
   family: "tetra",    // tetra | octa | ring | petal | shard | prism
   core: "sphere",     // sphere | d20 | cube | d12 | gem
+  body: "round",      // blob: round | droplet | bean | pebble | squircle | tri | cloud | hexy
+  eyes: "googly",     // blob: googly | slit | glint
+  accessories: [],    // blob: antenna, sprout, bow, halo, crown, headset, hardhat,
+                      //       tie, glasses, scarf, shirt, hoodie, cap — combine freely
   theme: "ember",     // or "sumi" | "signal" | registerTheme(...) your own
   trust: 0.35,        // resting shell spread — strict .15 / standard .35 / high .55
   seed: 42,           // deterministic personality jitter (same seed → same being)
@@ -18,6 +23,9 @@ const buddy = mountBuddy(canvasEl, {
   // tuning — all optional multipliers, 1 = reference, 0.5 = half, 2 = double
   scale: 1, plateSize: 1, coreSize: 1, eyeSize: 1, glow: 1,
   eyeSpacing: 1, eyeRaise: 1, eyeShift: 0,   // blob eye placement (shift -1..1 = off-center glance)
+  squareness: 0,      // blob body 0..1 — 0 organic round, 1 rounded app-icon square
+  gradient: 0,        // blob body 0..1 — 0 flat fill, 1 soft top-light/bottom-shade
+  sparkle: 1,         // pixie-dust emission rate (0 = off)
   bob: 1, tiltiness: 1, spread: 1, speed: 1,
   blinkRate: 1, glanceRate: 1,
 });

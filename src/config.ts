@@ -2,6 +2,7 @@ import type { FamilyName } from "./families";
 import type { CoreShape } from "./cores";
 import type { ThemeInput } from "./themes";
 import type { BlobBody, BlobEyes } from "./blob";
+import { accessoryRank, type AccessoryName } from "./accessories";
 
 /**
  * The one configuration object. Everything is optional; identity fields have
@@ -22,6 +23,8 @@ export interface BuddyConfig {
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
   core: CoreShape;
+  /** accessories — blob species; combine freely, drawn in array order (default []) */
+  accessories: AccessoryName[];
   /** registered theme name, or a raw BuddyTheme color object (default "ember") */
   theme: ThemeInput;
   /** resting shell spread 0..1 — trust posture (strict .15 / standard .35 / high .55) */
@@ -44,8 +47,14 @@ export interface BuddyConfig {
   eyeRaise: number;
   /** blob eye lateral bias in body-radius units, -1..1 (Grok's off-center glance look) */
   eyeShift: number;
+  /** blob body squareness 0..1 — 0 = organic round, 1 = rounded square (superellipse) */
+  squareness: number;
+  /** blob body gradient 0..1 — 0 = flat fill, 1 = full soft top-light/bottom-shade */
+  gradient: number;
   /** glow/bloom intensity */
   glow: number;
+  /** pixie-dust emission rate (0 = off) */
+  sparkle: number;
 
   // ---- motion (multipliers, 1 = reference) ----
   /** hover bob amplitude */
@@ -70,6 +79,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   body: "round",
   eyes: "googly",
   core: "sphere",
+  accessories: [],
   theme: "ember",
   trust: 0.35,
   seed: 42,
@@ -81,7 +91,10 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   eyeSpacing: 1,
   eyeRaise: 1,
   eyeShift: 0,
+  squareness: 0,
+  gradient: 0,
   glow: 1,
+  sparkle: 1,
 
   bob: 1,
   tiltiness: 1,
@@ -96,12 +109,17 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   const cfg = { ...DEFAULT_CONFIG, ...partial };
   cfg.trust = Math.max(0, Math.min(1, cfg.trust));
   for (const k of [
-    "scale", "plateSize", "coreSize", "eyeSize", "eyeSpacing", "glow",
+    "scale", "plateSize", "coreSize", "eyeSize", "eyeSpacing", "glow", "sparkle",
     "bob", "tiltiness", "spread", "speed", "blinkRate", "glanceRate",
   ] as const) {
     cfg[k] = Math.max(0, cfg[k]);
   }
   cfg.eyeShift = Math.max(-1, Math.min(1, cfg.eyeShift));
+  cfg.squareness = Math.max(0, Math.min(1, cfg.squareness));
+  cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
+  cfg.accessories = [...new Set(cfg.accessories)]
+    .filter((a) => a !== "none")
+    .sort((a, b) => accessoryRank(a) - accessoryRank(b));
   cfg.eyeRaise = Math.max(-1, Math.min(3, cfg.eyeRaise));  // negative = below center
   return cfg;
 }

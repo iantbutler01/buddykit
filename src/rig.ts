@@ -12,7 +12,8 @@ import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, BuddyState, BuddyEvent } from "./states";
 import { CoreShape, traceCore, traceFacets } from "./cores";
-import { traceBlob } from "./blob";
+import { traceBlob, blobTopR, blobBotR } from "./blob";
+import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
 export interface BuddyMountOptions extends Partial<BuddyConfig> {
@@ -94,6 +95,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   let nextBlink = 2.5, nextGlance = 1.8, nextTilt = 4;
   let pulseT = 0, ticks: number[] = [], flareRing = -1;
   let raf = 0, destroyed = false, visible = true;
+  interface Mote { x: number; y: number; vy: number; r: number; age: number; life: number; ph: number; col: string; }
+  let motes: Mote[] = [], moteAcc = 0, flareBurst = false;
   let blinkTimer: ReturnType<typeof setTimeout> | null = null;
 
   function buildPlates() {
@@ -226,6 +229,49 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     ticks.forEach((k) => ring(t - k, 1, 1.15, 0.4));
     if (flareRing >= 0) ring(flareRing, 0.8, 2.2, 0.85);
 
+    // ---- pixie dust ----
+    // Cute-side emissions: tiny four-point motes drifting up around the being.
+    const spawnMote = (burst: boolean) => {
+      if (motes.length > 40) return;
+      const a = rand() * Math.PI * 2;
+      const d = R * (burst ? 0.6 + rand() * 0.7 : 1.05 + rand() * 0.85);
+      motes.push({
+        x: cx + Math.cos(a) * d * 1.2,
+        y: cy + bodyY.p + Math.sin(a) * d,
+        vy: -(10 + rand() * 16) * DPR * (burst ? 1.8 : 1),
+        r: (1.4 + rand() * 2.2) * DPR,
+        age: 0, life: 1.2 + rand() * 1.4, ph: rand() * 7,
+        col: [T.eyeHot, "#ffffff", T.eye][(rand() * 3) | 0],
+      });
+    };
+    const spRate = cfg.sparkle * (state === "needs_you" ? 2.4 : state === "working" ? 1.5
+      : state === "listening" ? 0.7 : state === "away" ? 0.15 : 1);
+    moteAcc += dt * spRate;
+    while (moteAcc >= 1) { moteAcc -= 1; spawnMote(false); }
+    if (flareRing >= 0 && !flareBurst) { flareBurst = true; for (let i = 0; i < 16; i++) spawnMote(true); }
+    if (flareRing < 0) flareBurst = false;
+    motes = motes.filter((m) => (m.age += dt) < m.life);
+    for (const m of motes) {
+      m.y += m.vy * dt;
+      const q = m.age / m.life;
+      const tw = 0.55 + 0.45 * Math.sin(m.age * 9 + m.ph);
+      const alpha = Math.sin(q * Math.PI) * tw * Math.min(1, 0.9 * G);
+      const r = m.r * (1 - q * 0.4);
+      const x = m.x + Math.sin(t * 2.2 + m.ph) * 3 * DPR;
+      ctx.save();
+      ctx.translate(x, m.y);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = m.col;
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 2);
+      ctx.quadraticCurveTo(0, 0, r * 2, 0);
+      ctx.quadraticCurveTo(0, 0, 0, r * 2);
+      ctx.quadraticCurveTo(0, 0, -r * 2, 0);
+      ctx.quadraticCurveTo(0, 0, 0, -r * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     // ---- whole body ----
     // The eye and body are one unit: the body turns toward the gaze
     // (rotation from gaze-x, dip from gaze-y); the eye keeps only a small
@@ -245,17 +291,47 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // flat saturated body — the accent IS the being (clean, no outline/shading)
       ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
       ctx.shadowBlur = 18 * DPR * G;
-      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash);
+      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness);
       ctx.fillStyle = T.accent; ctx.fill();
       ctx.shadowBlur = 0;
+      if (cfg.gradient > 0) {
+        // soft top-light / bottom-shade over the accent, refilling the same path
+        const ga = 0.2 * cfg.gradient;
+        const gr = ctx.createLinearGradient(0, -bodyR * 1.25, 0, bodyR * 1.25);
+        gr.addColorStop(0, `rgba(255,255,255,${ga})`);
+        gr.addColorStop(0.55, "rgba(255,255,255,0)");
+        gr.addColorStop(1, `rgba(0,0,0,${ga * 0.85})`);
+        ctx.fillStyle = gr; ctx.fill();
+      }
+
+      // shared eye placement — the eye renderer and accessories (glasses,
+      // headset) must agree on where the eyes are
+      const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
+      const shiftX = cfg.eyeShift * bodyR * 0.3;
+      const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
+      const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
+        : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
+        : { sx: 0.34, sy: 0.12, f: 1, ring: 0.26 };
+      const geom = {
+        topY: -blobTopR(cfg.body, bodyR) * (1 - squash),
+        botY: blobBotR(cfg.body, bodyR) * (1 - squash),
+        bodyR, t, dark: T.coreDisc, accent: T.accent,
+        traceBody: (c: CanvasRenderingContext2D) => traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness),
+        eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
+        eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
+        eyeOX: shiftX + exOff * EYEP.f,
+        eyeOY: eyOff * EYEP.f,
+        ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
+      };
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p);
-        const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
-        const shiftX = cfg.eyeShift * bodyR * 0.3;
-        const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
         const closed = state === "away" || ap < 0.12;
+        // closed-lid radius must not scale with the eye-open spring — away
+        // drives eyeScale to 0 and the arcs would vanish with it
+        const restR = bodyR * 0.24 * cfg.eyeSize;
         const sleepArc = (er: number) => {
           ctx.beginPath();
           ctx.arc(0, 0, er, 0.15 * Math.PI, 0.85 * Math.PI);
@@ -267,10 +343,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // Overexaggerated by default — the eyes are the only feature, so they carry.
           const er = bodyR * 0.3 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * bodyR * 0.38 * cfg.eyeSpacing + shiftX + exOff * 0.4, eyc = -bodyR * 0.18 * cfg.eyeRaise + eyOff * 0.4;
+            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            if (closed) { sleepArc(er * 0.8); ctx.restore(); continue; }
+            if (closed) { sleepArc(restR); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
             ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -288,11 +364,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // at small sizes undersized slits vanish into the flat body.
           const eh = bodyR * 0.42 * wide, ew = eh * 0.36;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * bodyR * 0.26 * cfg.eyeSpacing + shiftX + exOff, eyc = -bodyR * 0.2 * cfg.eyeRaise + eyOff;
+            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
             ctx.rotate(sgn * 0.06);
-            if (closed) { sleepArc(eh * 0.55); ctx.restore(); continue; }
+            if (closed) { sleepArc(restR * 0.95); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath();
             ctx.roundRect(-ew / 2, -eh / 2, ew, eh, ew / 2);
@@ -303,10 +379,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // glint: original dark pupils + hot sparks
           const er = bodyR * 0.155 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * bodyR * 0.34 * cfg.eyeSpacing + shiftX + exOff, eyc = -bodyR * 0.12 * cfg.eyeRaise + eyOff;
+            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            if (closed) { sleepArc(er); ctx.restore(); continue; }
+            if (closed) { sleepArc(restR * 0.7); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
             ctx.fillStyle = T.coreDisc; ctx.fill();
@@ -318,6 +394,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           }
         }
       }
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
       ctx.restore();
       if (!reduced) raf = requestAnimationFrame(frame);
       return;

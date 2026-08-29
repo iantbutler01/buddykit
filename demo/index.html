@@ -31,11 +31,11 @@
   .minicard { background: var(--card); border: 1px solid var(--hairline); border-radius: 12px; padding: .9rem; display: flex; flex-direction: column; align-items: center; gap: .5rem; }
   .minicard canvas { border-radius: 8px; }
   .minicard span { font-size: .72rem; color: var(--ink-soft); }
-  .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem 1.2rem; padding: .9rem; border-top: 1px solid var(--hairline); background: var(--card); }
-  .sl { display: flex; align-items: center; gap: .55rem; font-size: .74rem; color: var(--ink-soft); }
-  .sl label { width: 4.6rem; font-weight: 600; letter-spacing: .02em; }
-  .sl input[type=range] { flex: 1; accent-color: var(--accent); }
-  .sl output { width: 2.2rem; text-align: right; font-family: var(--mono); font-size: .7rem; }
+  .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .6rem 1.4rem; padding: .9rem; border-top: 1px solid var(--hairline); background: var(--card); }
+  .sl { display: flex; align-items: center; gap: .55rem; font-size: .74rem; color: var(--ink-soft); min-width: 0; }
+  .sl label { flex: none; width: 5.8rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+  .sl input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  .sl output { flex: none; width: 2.8rem; text-align: right; font-family: var(--mono); font-size: .7rem; font-variant-numeric: tabular-nums; }
   .resetrow { padding: .6rem .9rem .9rem; background: var(--card); border-radius: 0 0 16px 16px; }
 </style>
 </head>
@@ -74,6 +74,22 @@
         <button class="ey" data-v="googly" aria-pressed="true">googly</button>
         <button class="ey" data-v="slit">slit</button>
         <button class="ey" data-v="glint">glint</button>
+      </div>
+      <div class="g"><span class="l">Extra</span>
+        <button class="ac" data-v="none" aria-pressed="true">none</button>
+        <button class="ac" data-v="antenna">antenna</button>
+        <button class="ac" data-v="sprout">sprout</button>
+        <button class="ac" data-v="bow">bow</button>
+        <button class="ac" data-v="halo">halo</button>
+        <button class="ac" data-v="crown">crown</button>
+        <button class="ac" data-v="headset">headset</button>
+        <button class="ac" data-v="hardhat">hardhat</button>
+        <button class="ac" data-v="tie">tie</button>
+        <button class="ac" data-v="glasses">glasses</button>
+        <button class="ac" data-v="scarf">scarf</button>
+        <button class="ac" data-v="shirt">shirt</button>
+        <button class="ac" data-v="hoodie">hoodie</button>
+        <button class="ac" data-v="cap">cap</button>
       </div>
       <div class="g"><span class="l">Shell</span>
         <button class="fam" data-v="tetra" aria-pressed="true">tetra</button>
@@ -133,6 +149,21 @@
   press(".sp", (v) => buddy.configure({ species: v }));
   press(".bo", (v) => buddy.configure({ body: v }));
   press(".ey", (v) => buddy.configure({ eyes: v }));
+  // accessories multi-toggle — combine freely; "none" clears
+  const acNone = document.querySelector('.ac[data-v="none"]');
+  document.querySelectorAll(".ac").forEach((b) => b.addEventListener("click", () => {
+    if (b === acNone) {
+      document.querySelectorAll(".ac").forEach((x) => x.setAttribute("aria-pressed", "false"));
+      acNone.setAttribute("aria-pressed", "true");
+      buddy.configure({ accessories: [] });
+      return;
+    }
+    b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+    const list = [...document.querySelectorAll('.ac[aria-pressed="true"]')]
+      .map((x) => x.dataset.v).filter((v) => v !== "none");
+    acNone.setAttribute("aria-pressed", String(!list.length));
+    buddy.configure({ accessories: list });
+  }));
   press(".fam", (v) => buddy.setFamily(v));
   press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
@@ -184,7 +215,7 @@
   // ---- tuning sliders → configure() ----
   const TUNING = [
     ["scale", 0.4, 1.6], ["plateSize", 0.4, 1.8], ["coreSize", 0.5, 1.5],
-    ["eyeSize", 0.5, 1.8], ["eyeSpacing", 0.4, 1.8], ["eyeRaise", -0.5, 2.5], ["eyeShift", -1, 1], ["glow", 0, 2.5],
+    ["eyeSize", 0.5, 1.8], ["eyeSpacing", 0.4, 1.8], ["eyeRaise", -0.5, 2.5], ["eyeShift", -1, 1], ["squareness", 0, 1], ["gradient", 0, 1], ["glow", 0, 2.5], ["sparkle", 0, 3],
     ["bob", 0, 2.5], ["tiltiness", 0, 2.5], ["spread", 0, 2],
     ["speed", 0.2, 2.5], ["blinkRate", 0, 3], ["glanceRate", 0, 3],
     ["trust", 0, 1],
@@ -212,7 +243,7 @@
   document.getElementById("reset").addEventListener("click", () => {
     const patch = {};
     for (const [key] of TUNING) {
-      const dv = key === "trust" ? 0.35 : key === "eyeShift" ? 0 : 1;
+      const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "squareness" || key === "gradient" ? 0 : 1;
       patch[key] = dv;
       inputs[key][0].value = dv;
       inputs[key][1].textContent = dv.toFixed(2);

@@ -39,13 +39,18 @@ export function traceBlob(
   t: number,
   phase: number,
   squash: number,
+  squareness = 0,
 ) {
   const def = BODIES[body];
   const N = 36;
+  // superellipse exponent: 2 = circle, higher = squarer (rounded corners for free)
+  const n = 2 + squareness * 10;
   const pts: [number, number][] = [];
   for (let i = 0; i < N; i++) {
     const th = (i / N) * Math.PI * 2 - Math.PI / 2;
-    let rad = 1;
+    let rad = squareness > 0
+      ? Math.pow(Math.pow(Math.abs(Math.cos(th)), n) + Math.pow(Math.abs(Math.sin(th)), n), -1 / n)
+      : 1;
     for (const [a0, amp, w] of def.bumps) {
       let d = th - (a0 * Math.PI) / 180;
       while (d > Math.PI) d -= Math.PI * 2;
@@ -70,6 +75,28 @@ export function traceBlob(
   const a0 = pts[0], b0 = pts[1];
   ctx.quadraticCurveTo(a0[0], a0[1], (a0[0] + b0[0]) / 2, (a0[1] + b0[1]) / 2);
   ctx.closePath();
+}
+
+function edgeR(body: BlobBody, r: number, angle: number): number {
+  const def = BODIES[body];
+  let rad = 1;
+  for (const [a0, amp, w] of def.bumps) {
+    let d = angle - (a0 * Math.PI) / 180;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    rad += amp * Math.exp(-(d * d) / (2 * w * w));
+  }
+  return rad * r * def.sy;
+}
+
+/** Outline radius at the crown (-90°), bumps included, wobble ignored — accessory anchor. */
+export function blobTopR(body: BlobBody, r: number): number {
+  return edgeR(body, r, -Math.PI / 2);
+}
+
+/** Outline radius at the chin (+90°) — cloth necklines scale against this so bands fit squat/tall bodies. */
+export function blobBotR(body: BlobBody, r: number): number {
+  return edgeR(body, r, Math.PI / 2);
 }
 
 /** Eye styles: googly (Doozy-style big sclera) | slit (Grok minimal pills) | glint (original dark pupils). */
