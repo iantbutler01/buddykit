@@ -329,6 +329,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       traceBody(ctx);
       ctx.fillStyle = T.accent; ctx.fill();
       ctx.shadowBlur = 0;
+      // depth — a body among orbiting objects (or a hard one) must read as an
+      // object itself: soft drop shadow + inner rim bevel; pure blobs stay flat
+      const depth = Math.max(cfg.shell ? 0.7 : 0, hard * 0.7);
+      if (depth > 0) {
+        ctx.save();
+        ctx.shadowColor = `rgba(0,0,0,${0.38 * depth})`;
+        ctx.shadowBlur = 12 * DPR;
+        ctx.shadowOffsetY = 4 * DPR;
+        traceBody(ctx); ctx.fillStyle = T.accent; ctx.fill();
+        ctx.restore();
+      }
       if (cfg.gradient > 0) {
         // soft top-light / bottom-shade over the accent, refilling the same path
         const ga = 0.2 * cfg.gradient;
@@ -337,6 +348,19 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         gr.addColorStop(0.55, "rgba(255,255,255,0)");
         gr.addColorStop(1, `rgba(0,0,0,${ga * 0.85})`);
         ctx.fillStyle = gr; ctx.fill();
+      }
+      if (depth > 0) {
+        // inner rim bevel — top light, bottom shade, clipped inside the body
+        ctx.save();
+        traceBody(ctx); ctx.clip();
+        const bev = ctx.createLinearGradient(0, -bodyR, 0, bodyR);
+        bev.addColorStop(0, `rgba(255,255,255,${0.3 * depth})`);
+        bev.addColorStop(0.45, "rgba(255,255,255,0)");
+        bev.addColorStop(1, `rgba(0,0,0,${0.26 * depth})`);
+        traceBody(ctx);
+        ctx.strokeStyle = bev; ctx.lineWidth = 10 * DPR;
+        ctx.stroke();
+        ctx.restore();
       }
       const facetA = Math.max(0, (hard - 0.35) / 0.65);   // facets fade in past mid-hardness
       if (facetA > 0 && traceFacets(ctx, cfg.core, bodyR * 0.96)) {
