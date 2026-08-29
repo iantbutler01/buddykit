@@ -16,7 +16,7 @@ const buddy = mountBuddy(canvasEl, {
   family: "tetra",    // tetra | octa | ring | petal | shard | prism
   core: "sphere",     // sphere | d20 | cube | d12 | gem
   body: "round",      // blob: round | droplet | bean | pebble | squircle | tri | cloud | hexy
-  eyes: "googly",     // blob: googly | slit | glint
+  eyes: "googly",     // blob: googly | slit | glint | dot | arc | ring
   accessories: [],    // blob: antenna, sprout, bow, halo, crown, headset, hardhat,
                       //       tie, glasses, scarf, shirt, hoodie, cap — combine freely
   theme: "ember",     // or "sumi" | "signal" | registerTheme(...) your own

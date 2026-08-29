@@ -113,6 +113,9 @@ export function blobBotR(body: BlobBody, r: number): number {
   return edgeR(body, r, Math.PI / 2);
 }
 
-/** Eye styles: googly (Doozy-style big sclera) | slit (Grok minimal pills) | glint (original dark pupils). */
-export type BlobEyes = "googly" | "slit" | "glint";
-export const BLOB_EYES: BlobEyes[] = ["googly", "slit", "glint"];
+/** Eye styles: googly (Doozy-style big sclera) | slit (Grok minimal pills →
+ *  rounded squares with hardness) | glint (dark pupils + hot spark) |
+ *  dot (minimal filled rounds) | arc (upturned happy crescents) |
+ *  ring (hollow rounds — curious robot). */
+export type BlobEyes = "googly" | "slit" | "glint" | "dot" | "arc" | "ring";
+export const BLOB_EYES: BlobEyes[] = ["googly", "slit", "glint", "dot", "arc", "ring"];

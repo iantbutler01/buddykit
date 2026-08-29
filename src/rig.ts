@@ -377,6 +377,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
       const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
         : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
+        : cfg.eyes === "dot" ? { sx: 0.3, sy: 0.16, f: 0.8, ring: 0.24 }
+        : cfg.eyes === "arc" ? { sx: 0.32, sy: 0.16, f: 0.6, ring: 0.28 }
+        : cfg.eyes === "ring" ? { sx: 0.32, sy: 0.16, f: 0.8, ring: 0.26 }
         : { sx: 0.34, sy: 0.12, f: 1, ring: 0.26 };
       const coreOutline = CORES[cfg.core].outline;
       const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
@@ -447,6 +450,54 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.beginPath();
             ctx.roundRect(-ew / 2, -eh / 2, ew, eh, rr);
             ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.restore();
+          }
+        } else if (cfg.eyes === "dot") {
+          // minimal filled rounds — quiet, friendly; hardness squares them slightly
+          const er = bodyR * 0.115 * wide;
+          const rr = er * (1 - hard * 0.45);
+          for (const sgn of [-1, 1]) {
+            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            ctx.save();
+            ctx.translate(exc, eyc);
+            if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
+            ctx.scale(1, ap);
+            ctx.beginPath();
+            ctx.roundRect(-er, -er, er * 2, er * 2, rr);
+            ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.restore();
+          }
+        } else if (cfg.eyes === "arc") {
+          // upturned happy crescents — permanent smize; blinks flatten them
+          const er = bodyR * 0.16 * wide;
+          for (const sgn of [-1, 1]) {
+            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            ctx.save();
+            ctx.translate(exc, eyc);
+            if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
+            ctx.scale(1, Math.max(0.25, ap));
+            ctx.beginPath();
+            ctx.arc(0, er * 0.45, er, Math.PI * 1.12, Math.PI * 1.88);
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = bodyR * 0.055 * wide;
+            ctx.lineCap = "round";
+            ctx.stroke();
+            ctx.restore();
+          }
+        } else if (cfg.eyes === "ring") {
+          // hollow rounds — curious robot; pupil-less but alive via saccades
+          const er = bodyR * 0.125 * wide;
+          for (const sgn of [-1, 1]) {
+            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            ctx.save();
+            ctx.translate(exc, eyc);
+            if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
+            ctx.scale(1, ap);
+            ctx.beginPath();
+            ctx.arc(0, 0, er, 0, 7);
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = bodyR * 0.05 * wide;
+            ctx.stroke();
             ctx.restore();
           }
         } else {
