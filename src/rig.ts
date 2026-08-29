@@ -346,6 +346,34 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const squash = soft * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0));
       const traceBody = (c: CanvasRenderingContext2D) =>
         traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness, hard, cfg.core);
+      // shared eye placement — the eye renderer and accessories (glasses,
+      // headset) must agree on where the eyes are; computed before the body
+      // paints so behind-layer accessories (capes) can use the same geometry
+      const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
+      const shiftX = cfg.eyeShift * bodyR * 0.3;
+      const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
+      const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
+        : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
+        : cfg.eyes === "dot" ? { sx: 0.3, sy: 0.16, f: 0.8, ring: 0.24 }
+        : cfg.eyes === "arc" ? { sx: 0.32, sy: 0.16, f: 0.6, ring: 0.28 }
+        : cfg.eyes === "ring" ? { sx: 0.32, sy: 0.16, f: 0.8, ring: 0.26 }
+        : { sx: 0.34, sy: 0.12, f: 1, ring: 0.26 };
+      const coreOutline = CORES[cfg.core].outline;
+      const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
+      const coreBot = coreOutline ? Math.max(...coreOutline.map((p) => p[1])) : 1;
+      const geom = {
+        topY: -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard),
+        botY: blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard,
+        bodyR, t, dark: T.coreDisc, accent: T.accent,
+        traceBody,
+        eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
+        eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
+        eyeOX: shiftX + exOff * EYEP.f,
+        eyeOY: eyOff * EYEP.f,
+        ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
+      };
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
+
       // flat saturated body — the accent IS the being (clean, no outline/shading)
       ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
       ctx.shadowBlur = 18 * DPR * G;
@@ -393,31 +421,6 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         ctx.stroke();
       }
 
-      // shared eye placement — the eye renderer and accessories (glasses,
-      // headset) must agree on where the eyes are
-      const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
-      const shiftX = cfg.eyeShift * bodyR * 0.3;
-      const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
-      const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
-        : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
-        : cfg.eyes === "dot" ? { sx: 0.3, sy: 0.16, f: 0.8, ring: 0.24 }
-        : cfg.eyes === "arc" ? { sx: 0.32, sy: 0.16, f: 0.6, ring: 0.28 }
-        : cfg.eyes === "ring" ? { sx: 0.32, sy: 0.16, f: 0.8, ring: 0.26 }
-        : { sx: 0.34, sy: 0.12, f: 1, ring: 0.26 };
-      const coreOutline = CORES[cfg.core].outline;
-      const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
-      const coreBot = coreOutline ? Math.max(...coreOutline.map((p) => p[1])) : 1;
-      const geom = {
-        topY: -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard),
-        botY: blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard,
-        bodyR, t, dark: T.coreDisc, accent: T.accent,
-        traceBody,
-        eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
-        eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
-        eyeOX: shiftX + exOff * EYEP.f,
-        eyeOY: eyOff * EYEP.f,
-        ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
-      };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades.

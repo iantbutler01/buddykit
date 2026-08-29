@@ -18,7 +18,10 @@ const buddy = mountBuddy(canvasEl, {
   body: "round",      // blob: round | droplet | bean | pebble | squircle | tri | cloud | hexy
   eyes: "googly",     // blob: googly | slit | glint | dot | arc | ring
   accessories: [],    // blob: antenna, sprout, bow, halo, crown, headset, hardhat,
-                      //       tie, glasses, scarf, shirt, hoodie, cap — combine freely
+                      //       tie, glasses, scarf, shirt, hoodie, cap, ears, bunny,
+                      //       cape, toque, mortarboard, stethoscope, badge, toolbelt,
+                      //       tophat, monocle, bowtie, beanie, sunglasses, santa,
+                      //       witch, party — combine freely, semantic layering
   theme: "ember",     // or "sumi" | "signal" | registerTheme(...) your own
   trust: 0.35,        // resting shell spread — strict .15 / standard .35 / high .55
   seed: 42,           // deterministic personality jitter (same seed → same being)
