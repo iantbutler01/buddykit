@@ -122,5 +122,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
     .filter((a) => a !== "none")
     .sort((a, b) => accessoryRank(a) - accessoryRank(b));
   cfg.eyeRaise = Math.max(-1, Math.min(3, cfg.eyeRaise));  // negative = below center
+  // the wisp is the restrained middle ground — cartoon anatomy stays on the blob
+  if (cfg.species === "wisp" && cfg.eyes === "googly") cfg.eyes = "slit";
   return cfg;
 }

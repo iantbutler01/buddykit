@@ -11,7 +11,7 @@ import { Spring } from "./spring";
 import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, BuddyState, BuddyEvent } from "./states";
-import { CoreShape, traceCore, traceFacets } from "./cores";
+import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
 import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
@@ -313,15 +313,22 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     });
 
     if (cfg.species !== "emblem") {
-      // ---- blob + wisp species: soft body, two eyes; wisp adds the shell ----
-      const bodyR = R * (cfg.species === "wisp" ? 0.72 : 0.95) * cfg.coreSize;
-      if (cfg.species === "wisp") drawPlates(bodyR * 1.05, 0.62);
-      // squash couples to the bob for organic weight; away slumps
-      const squash = (bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0);
+      // ---- blob: soft organic body / wisp: rigid faceted core + orbiting
+      // shell — the missing link between blob warmth and emblem geometry ----
+      const isWisp = cfg.species === "wisp";
+      const bodyR = R * (isWisp ? 0.72 : 0.95) * cfg.coreSize;
+      if (isWisp) drawPlates(bodyR * 1.05, 0.62);
+      // squash couples to the bob for organic weight; away slumps.
+      // The wisp core is a hard object — no squash, no wobble, ever.
+      const squash = isWisp ? 0
+        : (bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0);
+      const traceBody = (c: CanvasRenderingContext2D) => isWisp
+        ? traceCore(c, cfg.core, bodyR)
+        : traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness);
       // flat saturated body — the accent IS the being (clean, no outline/shading)
       ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
       ctx.shadowBlur = 18 * DPR * G;
-      traceBlob(ctx, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness);
+      traceBody(ctx);
       ctx.fillStyle = T.accent; ctx.fill();
       ctx.shadowBlur = 0;
       if (cfg.gradient > 0) {
@@ -333,6 +340,12 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         gr.addColorStop(1, `rgba(0,0,0,${ga * 0.85})`);
         ctx.fillStyle = gr; ctx.fill();
       }
+      if (isWisp && traceFacets(ctx, cfg.core, bodyR * 0.96)) {
+        // faint facet lines — the hard-material read
+        ctx.strokeStyle = T.glow + Math.min(1, 0.16 * G) + ")";
+        ctx.lineWidth = 1 * DPR;
+        ctx.stroke();
+      }
 
       // shared eye placement — the eye renderer and accessories (glasses,
       // headset) must agree on where the eyes are
@@ -342,11 +355,14 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
         : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
         : { sx: 0.34, sy: 0.12, f: 1, ring: 0.26 };
+      const coreOutline = CORES[cfg.core].outline;
+      const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
+      const coreBot = coreOutline ? Math.max(...coreOutline.map((p) => p[1])) : 1;
       const geom = {
-        topY: -blobTopR(cfg.body, bodyR) * (1 - squash),
-        botY: blobBotR(cfg.body, bodyR) * (1 - squash),
+        topY: isWisp ? -coreTop * bodyR : -blobTopR(cfg.body, bodyR) * (1 - squash),
+        botY: isWisp ? coreBot * bodyR : blobBotR(cfg.body, bodyR) * (1 - squash),
         bodyR, t, dark: T.coreDisc, accent: T.accent,
-        traceBody: (c: CanvasRenderingContext2D) => traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness),
+        traceBody,
         eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
         eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
         eyeOX: shiftX + exOff * EYEP.f,
@@ -392,16 +408,20 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         } else if (cfg.eyes === "slit") {
           // Grok-style minimal: two soft white pills; no outline. Big by default —
           // at small sizes undersized slits vanish into the flat body.
-          const eh = bodyR * 0.42 * wide, ew = eh * 0.36;
+          // Wisp variant: horizontal light-bars with squared ends (visor read,
+          // not organic pills) — rigid, no tilt.
+          const eh = isWisp ? bodyR * 0.13 * wide : bodyR * 0.42 * wide;
+          const ew = isWisp ? bodyR * 0.34 * wide : eh * 0.36;
+          const rr = isWisp ? eh * 0.28 : ew / 2;
           for (const sgn of [-1, 1]) {
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            ctx.rotate(sgn * 0.06);
+            if (!isWisp) ctx.rotate(sgn * 0.06);
             if (closed) { sleepArc(restR * 0.95); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath();
-            ctx.roundRect(-ew / 2, -eh / 2, ew, eh, ew / 2);
+            ctx.roundRect(-ew / 2, -eh / 2, ew, eh, rr);
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.restore();
           }
