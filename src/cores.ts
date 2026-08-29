@@ -99,6 +99,26 @@ export function coreNames(): CoreShape[] {
   return Object.keys(CORES) as CoreShape[];
 }
 
+/** Unit outline radius at angle th (radians) — 1 for the sphere; ray/edge
+ *  intersection for polygon cores. Lets the blob↔core hardness morph sample
+ *  both silhouettes on the same radial grid. */
+export function coreRadiusAt(shape: CoreShape, th: number): number {
+  const def = CORES[shape];
+  if (!def.outline) return 1;
+  const dx = Math.cos(th), dy = Math.sin(th);
+  const pts = def.outline, n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % n];
+    const ex = x2 - x1, ey = y2 - y1;
+    const den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const s = (x1 * ey - y1 * ex) / den;        // distance along the ray
+    const u = (x1 * dy - y1 * dx) / den;        // position along the edge
+    if (s > 0 && u >= -1e-6 && u <= 1 + 1e-6) return s;
+  }
+  return 1;
+}
+
 /** Trace the core outline (unit-space scaled by r) into the current path. */
 export function traceCore(
   ctx: CanvasRenderingContext2D,

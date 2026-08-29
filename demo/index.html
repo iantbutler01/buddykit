@@ -59,7 +59,7 @@
       <div class="g"><span class="l">Species</span>
         <button class="sp" data-v="emblem" aria-pressed="true">emblem</button>
         <button class="sp" data-v="blob">blob</button>
-        <button class="sp" data-v="wisp">wisp</button>
+        <button id="ringchip">⬡ ring</button>
       </div>
       <div class="g"><span class="l">Body</span>
         <button class="bo" data-v="round" aria-pressed="true">round</button>
@@ -148,6 +148,13 @@
     }));
   press(".st", (v) => buddy.setState(v));
   press(".sp", (v) => buddy.configure({ species: v }));
+  // shell ring — independent toggle, mixes with any body/hardness
+  const ringchip = document.getElementById("ringchip");
+  ringchip.addEventListener("click", () => {
+    const on = ringchip.getAttribute("aria-pressed") !== "true";
+    ringchip.setAttribute("aria-pressed", String(on));
+    buddy.configure({ shell: on });
+  });
   press(".bo", (v) => buddy.configure({ body: v }));
   press(".ey", (v) => buddy.configure({ eyes: v }));
   // accessories multi-toggle — combine freely; "none" clears
@@ -216,7 +223,7 @@
   // ---- tuning sliders → configure() ----
   const TUNING = [
     ["scale", 0.4, 1.6], ["plateSize", 0.4, 1.8], ["coreSize", 0.5, 1.5],
-    ["eyeSize", 0.5, 1.8], ["eyeSpacing", 0.4, 1.8], ["eyeRaise", -0.5, 2.5], ["eyeShift", -1, 1], ["squareness", 0, 1], ["gradient", 0, 1], ["glow", 0, 2.5], ["sparkle", 0, 3],
+    ["eyeSize", 0.5, 1.8], ["eyeSpacing", 0.4, 1.8], ["eyeRaise", -0.5, 2.5], ["eyeShift", -1, 1], ["squareness", 0, 1], ["hardness", 0, 1], ["gradient", 0, 1], ["glow", 0, 2.5], ["sparkle", 0, 3],
     ["bob", 0, 2.5], ["tiltiness", 0, 2.5], ["spread", 0, 2],
     ["speed", 0.2, 2.5], ["blinkRate", 0, 3], ["glanceRate", 0, 3],
     ["trust", 0, 1],
@@ -244,7 +251,7 @@
   document.getElementById("reset").addEventListener("click", () => {
     const patch = {};
     for (const [key] of TUNING) {
-      const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "squareness" || key === "gradient" ? 0 : 1;
+      const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "squareness" || key === "hardness" || key === "gradient" ? 0 : 1;
       patch[key] = dv;
       inputs[key][0].value = dv;
       inputs[key][1].textContent = dv.toFixed(2);

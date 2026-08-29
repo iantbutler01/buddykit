@@ -13,10 +13,15 @@ import { accessoryRank, type AccessoryName } from "./accessories";
  */
 export interface BuddyConfig {
   // ---- identity ----
-  /** visual species: geometric emblem, soft two-eyed blob, or wisp — a blob
-   *  core with the emblem's plate geometry orbiting it (default "emblem") */
-  species: "emblem" | "blob" | "wisp";
-  /** shell family — emblem + wisp species (default "tetra") */
+  /** visual species: geometric emblem or two-eyed blob (default "emblem").
+   *  Everything else — hardness, shell ring, accessories — mixes freely. */
+  species: "emblem" | "blob";
+  /** orbit the emblem's plate shell around the blob body (default false) */
+  shell: boolean;
+  /** blob body hardness 0..1 — 0 soft organic blob, 1 rigid faceted core
+   *  polyhedron (cfg.core picks the shape); eyes and motion harden with it */
+  hardness: number;
+  /** shell family — emblem, and the blob's ring when shell is on (default "tetra") */
   family: FamilyName;
   /** body form — blob species (default "round") */
   body: BlobBody;
@@ -76,6 +81,8 @@ export interface BuddyConfig {
 
 export const DEFAULT_CONFIG: BuddyConfig = {
   species: "emblem",
+  shell: false,
+  hardness: 0,
   family: "tetra",
   body: "round",
   eyes: "googly",
@@ -122,7 +129,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
     .filter((a) => a !== "none")
     .sort((a, b) => accessoryRank(a) - accessoryRank(b));
   cfg.eyeRaise = Math.max(-1, Math.min(3, cfg.eyeRaise));  // negative = below center
-  // the wisp is the restrained middle ground — cartoon anatomy stays on the blob
-  if (cfg.species === "wisp" && cfg.eyes === "googly") cfg.eyes = "slit";
+  cfg.hardness = Math.max(0, Math.min(1, cfg.hardness));
+  cfg.shell = !!cfg.shell;
   return cfg;
 }

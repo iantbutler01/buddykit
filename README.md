@@ -9,8 +9,10 @@ import { mountBuddy } from "buddykit";
 // One flat config object. Identity fields + tuning multipliers (1 = reference feel).
 const buddy = mountBuddy(canvasEl, {
   // identity
-  species: "emblem",  // emblem (geometric shell) | blob (soft two-eyed) |
-                      // wisp (rigid faceted core + orbiting shell — the middle ground)
+  species: "emblem",  // emblem (geometric shell) | blob (two-eyed; everything below mixes freely)
+  shell: false,       // blob: orbit the emblem's plate ring around the body
+  hardness: 0,        // blob: 0 soft organic → 1 rigid faceted core (cfg.core picks the shape);
+                      // body, eyes, and motion harden together — interpolate anywhere between
   family: "tetra",    // tetra | octa | ring | petal | shard | prism
   core: "sphere",     // sphere | d20 | cube | d12 | gem
   body: "round",      // blob: round | droplet | bean | pebble | squircle | tri | cloud | hexy

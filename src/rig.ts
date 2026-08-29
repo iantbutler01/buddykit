@@ -313,18 +313,16 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     });
 
     if (cfg.species !== "emblem") {
-      // ---- blob: soft organic body / wisp: rigid faceted core + orbiting
-      // shell — the missing link between blob warmth and emblem geometry ----
-      const isWisp = cfg.species === "wisp";
-      const bodyR = R * (isWisp ? 0.72 : 0.95) * cfg.coreSize;
-      if (isWisp) drawPlates(bodyR * 1.05, 0.62);
+      // ---- blob species: everything is a knob — hardness morphs the soft
+      // organic body toward a rigid faceted core; shell orbits the plate ring ----
+      const hard = cfg.hardness, soft = 1 - hard;
+      const bodyR = R * (cfg.shell ? 0.72 : 0.95) * cfg.coreSize;
+      if (cfg.shell) drawPlates(bodyR * 1.05, 0.62);
       // squash couples to the bob for organic weight; away slumps.
-      // The wisp core is a hard object — no squash, no wobble, ever.
-      const squash = isWisp ? 0
-        : (bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0);
-      const traceBody = (c: CanvasRenderingContext2D) => isWisp
-        ? traceCore(c, cfg.core, bodyR)
-        : traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness);
+      // A hard body is a hard object — squash fades out with hardness.
+      const squash = soft * ((bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0));
+      const traceBody = (c: CanvasRenderingContext2D) =>
+        traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness, hard, cfg.core);
       // flat saturated body — the accent IS the being (clean, no outline/shading)
       ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
       ctx.shadowBlur = 18 * DPR * G;
@@ -340,9 +338,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         gr.addColorStop(1, `rgba(0,0,0,${ga * 0.85})`);
         ctx.fillStyle = gr; ctx.fill();
       }
-      if (isWisp && traceFacets(ctx, cfg.core, bodyR * 0.96)) {
+      const facetA = Math.max(0, (hard - 0.35) / 0.65);   // facets fade in past mid-hardness
+      if (facetA > 0 && traceFacets(ctx, cfg.core, bodyR * 0.96)) {
         // faint facet lines — the hard-material read
-        ctx.strokeStyle = T.glow + Math.min(1, 0.16 * G) + ")";
+        ctx.strokeStyle = T.glow + Math.min(1, 0.16 * facetA * G) + ")";
         ctx.lineWidth = 1 * DPR;
         ctx.stroke();
       }
@@ -359,8 +358,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
       const coreBot = coreOutline ? Math.max(...coreOutline.map((p) => p[1])) : 1;
       const geom = {
-        topY: isWisp ? -coreTop * bodyR : -blobTopR(cfg.body, bodyR) * (1 - squash),
-        botY: isWisp ? coreBot * bodyR : blobBotR(cfg.body, bodyR) * (1 - squash),
+        topY: -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard),
+        botY: blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard,
         bodyR, t, dark: T.coreDisc, accent: T.accent,
         traceBody,
         eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
@@ -408,16 +407,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         } else if (cfg.eyes === "slit") {
           // Grok-style minimal: two soft white pills; no outline. Big by default —
           // at small sizes undersized slits vanish into the flat body.
-          // Wisp variant: horizontal light-bars with squared ends (visor read,
-          // not organic pills) — rigid, no tilt.
-          const eh = isWisp ? bodyR * 0.13 * wide : bodyR * 0.42 * wide;
-          const ew = isWisp ? bodyR * 0.34 * wide : eh * 0.36;
-          const rr = isWisp ? eh * 0.28 : ew / 2;
+          // Hardness morphs pill → friendly rounded square (Cozmo/Vector robot
+          // eyes — slightly taller than wide reads warm; wide-flat reads mean)
+          // and the organic tilt fades out.
+          const eh = bodyR * (0.42 * soft + 0.28 * hard) * wide;
+          const ew = bodyR * (0.151 * soft + 0.23 * hard) * wide;
+          const rr = (ew / 2) * soft + bodyR * 0.06 * wide * hard;
           for (const sgn of [-1, 1]) {
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            if (!isWisp) ctx.rotate(sgn * 0.06);
+            ctx.rotate(sgn * 0.06 * soft);
             if (closed) { sleepArc(restR * 0.95); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath();

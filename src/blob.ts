@@ -7,6 +7,8 @@
  *  - squash-and-stretch life, lid blinks (organic species blink with lids),
  *    shared saccades/attention/away semantics
  */
+import { CoreShape, coreRadiusAt } from "./cores";
+
 export type BlobBody = "round" | "droplet" | "bean" | "pebble" | "squircle" | "tri" | "cloud" | "hexy";
 
 export const BLOB_BODIES: BlobBody[] = ["round", "droplet", "bean", "pebble", "squircle", "tri", "cloud", "hexy"];
@@ -31,7 +33,9 @@ const BODIES: Record<BlobBody, BodyDef> = {
   hexy:    { sx: 1.0,  sy: 0.96, bumps: [[-90, 0.12, 0.45], [-30, 0.12, 0.45], [30, 0.12, 0.45], [90, 0.12, 0.45], [150, 0.12, 0.45], [210, 0.12, 0.45]], wobble: 0.007 },
 };
 
-/** Trace the blob outline into the current path. squash: +stretch / -squash. */
+/** Trace the blob outline into the current path. squash: +stretch / -squash.
+ *  hardness 0..1 morphs the organic silhouette toward the rigid core
+ *  polyhedron (ray-sampled on the same radial grid); wobble fades with it. */
 export function traceBlob(
   ctx: CanvasRenderingContext2D,
   body: BlobBody,
@@ -40,9 +44,12 @@ export function traceBlob(
   phase: number,
   squash: number,
   squareness = 0,
+  hardness = 0,
+  core: CoreShape = "sphere",
 ) {
   const def = BODIES[body];
-  const N = 36;
+  const N = 72;
+  const soft = 1 - hardness;
   // superellipse exponent: 2 = circle, higher = squarer (rounded corners for free)
   const n = 2 + squareness * 10;
   const pts: [number, number][] = [];
@@ -57,13 +64,20 @@ export function traceBlob(
       while (d < -Math.PI) d += Math.PI * 2;
       rad += amp * Math.exp(-(d * d) / (2 * w * w));
     }
-    rad += def.wobble * (
+    rad += def.wobble * soft * (
       Math.sin(th * 3 + phase + t * 0.9) * 0.6 +
       Math.sin(th * 5 - phase * 2 + t * 0.6) * 0.4
     );
-    const x = Math.cos(th) * rad * r * def.sx * (1 + squash * 0.5);
-    const y = Math.sin(th) * rad * r * def.sy * (1 - squash);
-    pts.push([x, y]);
+    const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
+    const xs = Math.cos(th) * rad * sx * (1 + squash * 0.5);
+    const ys = Math.sin(th) * rad * sy * (1 - squash);
+    if (hardness > 0) {
+      const rc = coreRadiusAt(core, th);
+      const xc = Math.cos(th) * rc, yc = Math.sin(th) * rc;
+      pts.push([(xs * soft + xc * hardness) * r, (ys * soft + yc * hardness) * r]);
+    } else {
+      pts.push([xs * r, ys * r]);
+    }
   }
   ctx.beginPath();
   for (let i = 0; i < N; i++) {
