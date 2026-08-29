@@ -53,6 +53,9 @@ export interface BuddyConfig {
   eyeRaise: number;
   /** blob eye lateral bias in body-radius units, -1..1 (Grok's off-center glance look) */
   eyeShift: number;
+  /** blob eye rotation in degrees, mirrored across the pair — 90 turns slits
+   *  horizontal; small values slant them like brows (-90..90, default 0) */
+  eyeAngle: number;
   /** blob body squareness 0..1 — 0 = organic round, 1 = rounded square (superellipse) */
   squareness: number;
   /** blob body gradient 0..1 — 0 = flat fill, 1 = full soft top-light/bottom-shade */
@@ -99,6 +102,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   eyeSpacing: 1,
   eyeRaise: 1,
   eyeShift: 0,
+  eyeAngle: 0,
   squareness: 0,
   gradient: 0,
   glow: 1,
@@ -123,6 +127,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
     cfg[k] = Math.max(0, cfg[k]);
   }
   cfg.eyeShift = Math.max(-1, Math.min(1, cfg.eyeShift));
+  cfg.eyeAngle = Math.max(-90, Math.min(90, cfg.eyeAngle));
   cfg.squareness = Math.max(0, Math.min(1, cfg.squareness));
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
   cfg.accessories = [...new Set(cfg.accessories)]

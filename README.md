@@ -26,6 +26,8 @@ const buddy = mountBuddy(canvasEl, {
   // tuning — all optional multipliers, 1 = reference, 0.5 = half, 2 = double
   scale: 1, plateSize: 1, coreSize: 1, eyeSize: 1, glow: 1,
   eyeSpacing: 1, eyeRaise: 1, eyeShift: 0,   // blob eye placement (shift -1..1 = off-center glance)
+  eyeAngle: 0,        // blob eye rotation in degrees, mirrored — 90 = horizontal slits,
+                      // small values slant them like brows (-90..90)
   squareness: 0,      // blob body 0..1 — 0 organic round, 1 rounded app-icon square
   gradient: 0,        // blob body 0..1 — 0 flat fill, 1 soft top-light/bottom-shade
   sparkle: 1,         // pixie-dust emission rate (0 = off)
@@ -35,6 +37,8 @@ const buddy = mountBuddy(canvasEl, {
 
 buddy.setState("working");        // idle | listening | working | needs_you | away
 buddy.fire("flare");              // 360 spin + ring, returns to state
+buddy.fire("joy");                // emotes: joy (arc-eyes + double hop) | surprise
+                                  // (wide eyes + stretch) | nod | shake — ~1s overlays
 buddy.configure({ theme: "signal", bob: 1.4 });  // live-update anything
 const cfg = buddy.getConfig();    // serialize a being — store it, remount it anywhere
 buddy.destroy();

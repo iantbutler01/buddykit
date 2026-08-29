@@ -10,7 +10,7 @@
 import { Spring } from "./spring";
 import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
-import { STATES, BuddyState, BuddyEvent } from "./states";
+import { STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
 import { drawAccessory, accessoryLayer } from "./accessories";
@@ -94,6 +94,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   let t = 0, last = performance.now();
   let nextBlink = 2.5, nextGlance = 1.8, nextTilt = 4;
   let pulseT = 0, ticks: number[] = [], flareRing = -1;
+  let emote: Exclude<BuddyEvent, "flare"> | null = null, emoteT = 0;
   let raf = 0, destroyed = false, visible = true;
   interface Mote { x: number; y: number; vy: number; r: number; age: number; life: number; ph: number; col: string; }
   let motes: Mote[] = [], moteAcc = 0, flareBurst = false;
@@ -164,6 +165,28 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     const T = theme, S = STATES[state];
     const R = Math.min(W, H) * 0.16 * cfg.scale;
 
+    // ---- emote envelope: short expressions layered over the state ----
+    let eJoy = 0, emoteHop = 0, emoteTilt = 0, emoteSquash = 0, emoteWide = 0;
+    if (emote) {
+      emoteT += dt0;
+      const p = Math.min(1, emoteT / EMOTES[emote]);
+      const env = Math.sin(p * Math.PI);
+      if (emote === "joy") {
+        eJoy = env;
+        emoteHop = -Math.abs(Math.sin(p * Math.PI * 2)) * 9 * DPR;   // double hop
+        emoteSquash = Math.sin(p * Math.PI * 4) * 0.05 * env;
+      } else if (emote === "surprise") {
+        emoteWide = env;
+        emoteSquash = 0.12 * env;                                     // stretch tall
+        emoteHop = -5 * DPR * env;
+      } else if (emote === "nod") {
+        emoteHop = Math.sin(p * Math.PI * 3) * 6 * DPR;               // down-up-down
+      } else if (emote === "shake") {
+        emoteTilt = Math.sin(p * Math.PI * 5) * 0.1 * env;            // no-no wag
+      }
+      if (p >= 1) emote = null;
+    }
+
     // ---- personality timers ----
     nextBlink -= dt * cfg.blinkRate;
     if (nextBlink <= 0 && state !== "away") {
@@ -189,7 +212,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
     // ---- springs (physical time) ----
     gSpread.set(cfg.trust + S.spread * cfg.spread);
-    eyeScale.set(S.eye);
+    eyeScale.set(S.eye * (1 + 0.5 * emoteWide));
     if (state === "away") eyeLid.set(0);
     else if (eyeLid.t !== 0) eyeLid.set(S.eyeOpen);
     bodyY.set(Math.sin(t * 1.5) * 5 * DPR * S.bob * cfg.bob);
@@ -280,8 +303,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     const gazeRot = eyeX.p * 0.16;
     const gazeDip = eyeY.p * coreRPre * 0.22;
     ctx.save();
-    ctx.translate(cx, cy + bodyY.p + gazeDip);
-    ctx.rotate(bodyTilt.p + gazeRot);
+    ctx.translate(cx, cy + bodyY.p + gazeDip + emoteHop);
+    ctx.rotate(bodyTilt.p + gazeRot + emoteTilt);
 
     // shared plate shell — emblem draws it around the core, wisp orbits it
     // around the blob body (Rb sets the orbit baseline, szMul the plate scale)
@@ -320,7 +343,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       if (cfg.shell) drawPlates(bodyR * 1.05, 0.62);
       // squash couples to the bob for organic weight; away slumps.
       // A hard body is a hard object — squash fades out with hardness.
-      const squash = soft * ((bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0));
+      const squash = soft * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0));
       const traceBody = (c: CanvasRenderingContext2D) =>
         traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness, hard, cfg.core);
       // flat saturated body — the accent IS the being (clean, no outline/shading)
@@ -397,7 +420,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
 
-      // two eyes — style per cfg.eyes; lid blinks; shared saccades
+      // two eyes — style per cfg.eyes; lid blinks; shared saccades.
+      // joy overrides the eye style with happy arcs at its peak; eyeAngle
+      // rotates mirrored (90 = horizontal slits, small values = brow slants)
+      const eyeStyle = eJoy > 0.45 ? "arc" : cfg.eyes;
+      const eyeRot = (cfg.eyeAngle * Math.PI) / 180;
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p);
         const closed = state === "away" || ap < 0.12;
@@ -410,7 +437,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.6 * DPR; ctx.lineCap = "round";
           ctx.stroke();
         };
-        if (cfg.eyes === "googly") {
+        if (eyeStyle === "googly") {
           // Doozy-style: big near-white sclera, large pupil chasing the gaze, glint.
           // Overexaggerated by default — the eyes are the only feature, so they carry.
           const er = bodyR * 0.3 * wide;
@@ -431,7 +458,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fill();
             ctx.restore();
           }
-        } else if (cfg.eyes === "slit") {
+        } else if (eyeStyle === "slit") {
           // Grok-style minimal: two soft white pills; no outline. Big by default —
           // at small sizes undersized slits vanish into the flat body.
           // Hardness morphs pill → friendly rounded square (Cozmo/Vector robot
@@ -444,7 +471,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
-            ctx.rotate(sgn * 0.06 * soft);
+            ctx.rotate(sgn * (0.06 * soft + eyeRot));
             if (closed) { sleepArc(restR * 0.95); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath();
@@ -452,7 +479,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.restore();
           }
-        } else if (cfg.eyes === "dot") {
+        } else if (eyeStyle === "dot") {
           // minimal filled rounds — quiet, friendly; hardness squares them slightly
           const er = bodyR * 0.115 * wide;
           const rr = er * (1 - hard * 0.45);
@@ -460,6 +487,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
+            ctx.rotate(sgn * eyeRot);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.beginPath();
@@ -467,13 +495,14 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.restore();
           }
-        } else if (cfg.eyes === "arc") {
+        } else if (eyeStyle === "arc") {
           // upturned happy crescents — permanent smize; blinks flatten them
           const er = bodyR * 0.16 * wide;
           for (const sgn of [-1, 1]) {
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
+            ctx.rotate(sgn * eyeRot);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, Math.max(0.25, ap));
             ctx.beginPath();
@@ -484,7 +513,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.stroke();
             ctx.restore();
           }
-        } else if (cfg.eyes === "ring") {
+        } else if (eyeStyle === "ring") {
           // hollow rounds — curious robot; pupil-less but alive via saccades
           const er = bodyR * 0.125 * wide;
           for (const sgn of [-1, 1]) {
@@ -597,6 +626,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         spinAccum += Math.PI * 2;
         bodyTilt.set(spinAccum);
         flareRing = 0;
+        if (reduced) renderOnce();
+      } else {
+        emote = e; emoteT = 0;
         if (reduced) renderOnce();
       }
     },
