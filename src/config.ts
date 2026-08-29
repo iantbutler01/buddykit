@@ -13,9 +13,10 @@ import { accessoryRank, type AccessoryName } from "./accessories";
  */
 export interface BuddyConfig {
   // ---- identity ----
-  /** visual species: geometric emblem or soft two-eyed blob (default "emblem") */
-  species: "emblem" | "blob";
-  /** shell family — emblem species (default "tetra") */
+  /** visual species: geometric emblem, soft two-eyed blob, or wisp — a blob
+   *  core with the emblem's plate geometry orbiting it (default "emblem") */
+  species: "emblem" | "blob" | "wisp";
+  /** shell family — emblem + wisp species (default "tetra") */
   family: FamilyName;
   /** body form — blob species (default "round") */
   body: BlobBody;

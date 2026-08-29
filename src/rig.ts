@@ -283,9 +283,39 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     ctx.translate(cx, cy + bodyY.p + gazeDip);
     ctx.rotate(bodyTilt.p + gazeRot);
 
-    if (cfg.species === "blob") {
-      // ---- blob species: soft body, two eyes, antenna accent ----
-      const bodyR = R * 0.95 * cfg.coreSize;
+    // shared plate shell — emblem draws it around the core, wisp orbits it
+    // around the blob body (Rb sets the orbit baseline, szMul the plate scale)
+    const drawPlates = (Rb: number, szMul: number) => plates.forEach((p, i) => {
+      const live = t - p.born > p.delay;
+      const wob = Math.sin(t * 1.15 + p.jphase) * 0.035;
+      p.rad.set(Rb * (0.98 + gSpread.p * 1.5) * p.def.d * (1 + (live ? wob : 0)));
+      p.scl.set(Rb * 0.52 * p.def.s * cfg.plateSize * szMul);
+      if (live) { p.rad.step(dt0); p.scl.step(dt0); }
+      const ang = p.def.a * Math.PI / 180;
+      const px = Math.cos(ang) * p.rad.p, py = Math.sin(ang) * p.rad.p;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(ang + Math.PI / 2 + (state === "working" ? Math.sin(t * 2 + i) * 0.05 : 0));
+      const s = p.scl.p, pts = shapePts(p.def.sh, s);
+      ctx.shadowColor = T.seam; ctx.shadowBlur = 8 * DPR; ctx.shadowOffsetY = 2.5 * DPR;
+      poly(ctx, pts, s * 0.14); ctx.fillStyle = T.face; ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = T.side;
+      ctx.fillRect(-s * 1.6, s * 0.02, s * 3.2, s * 1.8);
+      ctx.restore();
+      poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.edge; ctx.lineWidth = 1.2 * DPR; ctx.stroke();
+      poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.glow + Math.min(1, 0.35 * G) + ")"; ctx.lineWidth = 2.6 * DPR; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.16, -s * 0.98); ctx.lineTo(0, -s * 1.22); ctx.lineTo(s * 0.16, -s * 0.98);
+      ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
+      ctx.restore();
+    });
+
+    if (cfg.species !== "emblem") {
+      // ---- blob + wisp species: soft body, two eyes; wisp adds the shell ----
+      const bodyR = R * (cfg.species === "wisp" ? 0.72 : 0.95) * cfg.coreSize;
+      if (cfg.species === "wisp") drawPlates(bodyR * 1.05, 0.62);
       // squash couples to the bob for organic weight; away slumps
       const squash = (bodyY.v * -0.0022) + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0);
       // flat saturated body — the accent IS the being (clean, no outline/shading)
@@ -421,32 +451,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     ctx.restore();
 
     // ---- plates ----
-    plates.forEach((p, i) => {
-      const live = t - p.born > p.delay;
-      const wob = Math.sin(t * 1.15 + p.jphase) * 0.035;
-      p.rad.set(R * (0.98 + gSpread.p * 1.5) * p.def.d * (1 + (live ? wob : 0)));
-      p.scl.set(R * 0.52 * p.def.s * cfg.plateSize);
-      if (live) { p.rad.step(dt0); p.scl.step(dt0); }
-      const ang = p.def.a * Math.PI / 180;
-      const px = Math.cos(ang) * p.rad.p, py = Math.sin(ang) * p.rad.p;
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(ang + Math.PI / 2 + (state === "working" ? Math.sin(t * 2 + i) * 0.05 : 0));
-      const s = p.scl.p, pts = shapePts(p.def.sh, s);
-      ctx.shadowColor = T.seam; ctx.shadowBlur = 8 * DPR; ctx.shadowOffsetY = 2.5 * DPR;
-      poly(ctx, pts, s * 0.14); ctx.fillStyle = T.face; ctx.fill();
-      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      ctx.save(); ctx.clip();
-      ctx.fillStyle = T.side;
-      ctx.fillRect(-s * 1.6, s * 0.02, s * 3.2, s * 1.8);
-      ctx.restore();
-      poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.edge; ctx.lineWidth = 1.2 * DPR; ctx.stroke();
-      poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.glow + Math.min(1, 0.35 * G) + ")"; ctx.lineWidth = 2.6 * DPR; ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-s * 0.16, -s * 0.98); ctx.lineTo(0, -s * 1.22); ctx.lineTo(s * 0.16, -s * 0.98);
-      ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
-      ctx.restore();
-    });
+    drawPlates(R, 1);
 
     // ---- the eye: concentric lens, aperture blink ----
     if (eyeOn > 0.01) {
