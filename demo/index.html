@@ -28,9 +28,23 @@
   button:hover { border-color: var(--accent); }
   button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .row { display: flex; gap: 1rem; margin-top: 1.4rem; flex-wrap: wrap; }
-  .minicard { background: var(--card); border: 1px solid var(--hairline); border-radius: 12px; padding: .9rem; display: flex; flex-direction: column; align-items: center; gap: .5rem; }
-  .minicard canvas { border-radius: 8px; }
-  .minicard span { font-size: .72rem; color: var(--ink-soft); }
+  .rosterhead { margin: 3rem 0 0.2rem; font-size: 1.3rem; letter-spacing: -0.01em; }
+  .rostersub { margin: 0 0 1.2rem; color: var(--ink-soft); font-size: 0.9rem; }
+  .roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
+  .rostercard {
+    position: relative;
+    background: linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 80%, black));
+    border: 1px solid var(--hairline); border-radius: 14px;
+    padding: 1rem 0.8rem 0.8rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+    cursor: pointer; transition: border-color .15s, transform .15s;
+  }
+  .rostercard:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .rostercard.picked { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .rostercard canvas { border-radius: 10px; }
+  .rostercard .plat { width: 70%; height: 12px; border-radius: 50%; background: radial-gradient(50% 100% at 50% 50%, #00000055, transparent 70%); margin-top: -8px; }
+  .rostercard b { font-size: 0.9rem; letter-spacing: -0.01em; margin-top: 0.3rem; }
+  .rostercard small { font-size: 0.68rem; color: var(--ink-soft); text-align: center; line-height: 1.35; }
   .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .6rem 1.4rem; padding: .9rem; border-top: 1px solid var(--hairline); background: var(--card); }
   .sl { display: flex; align-items: center; gap: .55rem; font-size: .74rem; color: var(--ink-soft); min-width: 0; }
   .sl label { flex: none; width: 5.8rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
@@ -152,7 +166,9 @@
     <div class="resetrow"><button id="reset">reset tuning</button> <button id="copycfg">copy config</button></div>
   </div>
 
-  <div class="row" id="minis"></div>
+  <h2 class="rosterhead">Choose your buddy</h2>
+  <p class="rostersub">A dozen beings from the same handful of traits. Click one to take control of it above.</p>
+  <div class="roster" id="roster"></div>
 </div>
 
 <script type="module">
@@ -293,31 +309,69 @@
     setTimeout(() => (document.getElementById("copycfg").textContent = "copy config"), 1200);
   });
 
-  // mini gallery: every family as a small always-idle buddy (distinct seeds)
-  const minis = document.getElementById("minis");
-  for (const [b, ey] of [["round","googly"],["droplet","slit"],["bean","googly"],["squircle","slit"],["cloud","googly"],["tri","glint"]]) {
+  // ---- the roster: an MMO-style character select of preset beings ----
+  // click one to load its full config into the hero above (chips/sliders sync)
+  const ROSTER = [
+    { name: "Pip",      cls: "Round Googly · the classic",          cfg: { species: "blob", body: "round", eyes: "googly", theme: "ember", seed: 7 } },
+    { name: "Whiskers", cls: "Feline · ears + bowtie",              cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07a2f", accessories: ["ears", "bowtie"], seed: 21 } },
+    { name: "Sterling", cls: "Gentleman · cape, tophat, monocle",   cfg: { species: "blob", body: "round", eyes: "slit", theme: "#8a7cf0", accessories: ["cape", "tophat", "monocle"], seed: 33 } },
+    { name: "Shade",    cls: "Ninja · scarf, horizontal slits",     cfg: { species: "blob", body: "round", eyes: "slit", eyeAngle: 90, theme: "#d6453d", accessories: ["scarf"], seed: 44 } },
+    { name: "Cubit",    cls: "Construct · hard core + shell ring",  cfg: { species: "blob", body: "round", eyes: "slit", hardness: 1, shell: true, core: "cube", family: "petal", theme: "#5b5763", gradient: 0.35, seed: 55 } },
+    { name: "Sous",     cls: "Chef · toque",                        cfg: { species: "blob", body: "bean", eyes: "dot", theme: "#4fb8a8", accessories: ["toque"], seed: 61 } },
+    { name: "Doc",      cls: "Medic · stethoscope + badge",         cfg: { species: "blob", body: "round", eyes: "arc", theme: "#7fb069", accessories: ["stethoscope", "badge"], seed: 72 } },
+    { name: "Rune",     cls: "Witch · hat + sprout",                cfg: { species: "blob", body: "droplet", eyes: "glint", theme: "#8a7cf0", accessories: ["witch"], seed: 83 } },
+    { name: "Foreman",  cls: "Builder · hardhat + toolbelt",        cfg: { species: "blob", body: "squircle", eyes: "googly", theme: "#e0a12f", accessories: ["hardhat", "toolbelt"], seed: 90 } },
+    { name: "Hopps",    cls: "Bunny · party regular",               cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07aa8", accessories: ["bunny", "party"], seed: 101 } },
+    { name: "Vesper",   cls: "Ghost · petal shell, gem core",       cfg: { species: "emblem", family: "petal", core: "gem", theme: "sumi", seed: 12 } },
+    { name: "Tetra",    cls: "Ghost · tetra shell, d20 core",       cfg: { species: "emblem", family: "tetra", core: "d20", theme: "ember", seed: 5 } },
+  ];
+  const roster = document.getElementById("roster");
+  for (const being of ROSTER) {
     const card = document.createElement("div");
-    card.className = "minicard";
+    card.className = "rostercard";
     const c = document.createElement("canvas");
-    c.style.width = "120px"; c.style.height = "120px";
+    c.style.width = "150px"; c.style.height = "140px";
     card.appendChild(c);
-    const label = document.createElement("span");
-    label.textContent = "blob · " + b + " · " + ey;
-    card.appendChild(label);
-    minis.appendChild(card);
-    mountBuddy(c, { species: "blob", body: b, eyes: ey, seed: b.length * 31, theme: "ember" });
+    const plat = document.createElement("div");
+    plat.className = "plat";
+    card.appendChild(plat);
+    const nm = document.createElement("b");
+    nm.textContent = being.name;
+    card.appendChild(nm);
+    const cl = document.createElement("small");
+    cl.textContent = being.cls;
+    card.appendChild(cl);
+    roster.appendChild(card);
+    const mini = mountBuddy(c, being.cfg);
+    card.addEventListener("mouseenter", () => mini.setState("listening"));
+    card.addEventListener("mouseleave", () => mini.setState("idle"));
+    card.addEventListener("click", () => {
+      document.querySelectorAll(".rostercard").forEach((x) => x.classList.remove("picked"));
+      card.classList.add("picked");
+      adoptConfig(mini.getConfig());
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   }
-  for (const fam of ["tetra", "octa", "ring", "petal", "shard", "prism"]) {
-    const card = document.createElement("div");
-    card.className = "minicard";
-    const c = document.createElement("canvas");
-    c.style.width = "120px"; c.style.height = "120px";
-    card.appendChild(c);
-    const label = document.createElement("span");
-    label.textContent = fam;
-    card.appendChild(label);
-    minis.appendChild(card);
-    mountBuddy(c, { family: fam, seed: fam.length * 17, theme: "ember", core: ["sphere","d20","cube","d12","gem","sphere"][["tetra","octa","ring","petal","shard","prism"].indexOf(fam)] });
+
+  // load a full config into the hero and sync every control to it
+  function adoptConfig(cfg) {
+    buddy.configure(cfg);
+    const pressGroup = (sel, val) => document.querySelectorAll(sel).forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.v === String(val))));
+    pressGroup(".sp", cfg.species);
+    pressGroup(".bo", cfg.body);
+    pressGroup(".ey", cfg.eyes);
+    pressGroup(".fam", cfg.family);
+    pressGroup(".co", cfg.core);
+    document.querySelectorAll(".ac").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.v === "none" ? cfg.accessories.length === 0 : cfg.accessories.includes(b.dataset.v))));
+    ringchip.setAttribute("aria-pressed", String(!!cfg.shell));
+    for (const [key] of TUNING) {
+      if (typeof cfg[key] === "number" && inputs[key]) {
+        inputs[key][0].value = cfg[key];
+        inputs[key][1].textContent = Number(cfg[key]).toFixed(2);
+      }
+    }
   }
 </script>
 </body>

@@ -53,7 +53,10 @@ export function themeNames(): string[] {
 export type ThemeInput = string | BuddyTheme;
 
 export function resolveTheme(input: ThemeInput): BuddyTheme {
-  return typeof input === "string" ? getTheme(input) : input;
+  if (typeof input !== "string") return input;
+  // "#rrggbb" is sugar for themeFromAccent — one accent color is a full identity
+  if (input.startsWith("#")) return themeFromAccent(input);
+  return getTheme(input);
 }
 
 function hexToRgb(hex: string): [number, number, number] {
