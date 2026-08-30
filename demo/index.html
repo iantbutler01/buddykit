@@ -15,7 +15,7 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--sys); }
-  .wrap { max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.2rem 5rem; }
+  .wrap { max-width: 74rem; margin: 0 auto; padding: 2.5rem 1.2rem 5rem; }
   h1 { font-weight: 750; letter-spacing: -.01em; margin: 0 0 .2rem; }
   .sub { color: var(--ink-soft); margin: 0 0 1.6rem; }
   .stage { background: radial-gradient(ellipse at 50% 42%, color-mix(in oklab, var(--card) 88%, var(--accent)) 0%, var(--card) 62%); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; position: relative; }
@@ -28,23 +28,33 @@
   button:hover { border-color: var(--accent); }
   button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
   .row { display: flex; gap: 1rem; margin-top: 1.4rem; flex-wrap: wrap; }
-  .rosterhead { margin: 3rem 0 0.2rem; font-size: 1.3rem; letter-spacing: -0.01em; }
-  .rostersub { margin: 0 0 1.2rem; color: var(--ink-soft); font-size: 0.9rem; }
-  .roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
+  .layout { display: flex; gap: 1.4rem; align-items: flex-start; }
+  .main { flex: 1; min-width: 0; }
+  .side { flex: none; width: 336px; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; padding-right: 2px; }
+  .side::-webkit-scrollbar { width: 6px; }
+  .side::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 3px; }
+  .rosterhead { margin: 0 0 0.2rem; font-size: 1.05rem; letter-spacing: -0.01em; }
+  .rostersub { margin: 0 0 0.9rem; color: var(--ink-soft); font-size: 0.78rem; }
+  .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+  @media (max-width: 1080px) {
+    .layout { flex-direction: column; }
+    .side { position: static; width: 100%; max-height: none; }
+    .roster { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  }
   .rostercard {
     position: relative;
     background: linear-gradient(180deg, var(--card), color-mix(in srgb, var(--card) 80%, black));
     border: 1px solid var(--hairline); border-radius: 14px;
-    padding: 1rem 0.8rem 0.8rem;
+    padding: 0.55rem 0.45rem 0.5rem;
     display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
     cursor: pointer; transition: border-color .15s, transform .15s;
   }
   .rostercard:hover { border-color: var(--accent); transform: translateY(-3px); }
   .rostercard.picked { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .rostercard canvas { border-radius: 10px; }
-  .rostercard .plat { width: 70%; height: 12px; border-radius: 50%; background: radial-gradient(50% 100% at 50% 50%, #00000055, transparent 70%); margin-top: -8px; }
-  .rostercard b { font-size: 0.9rem; letter-spacing: -0.01em; margin-top: 0.3rem; }
-  .rostercard small { font-size: 0.68rem; color: var(--ink-soft); text-align: center; line-height: 1.35; }
+  .rostercard .plat { width: 70%; height: 9px; border-radius: 50%; background: radial-gradient(50% 100% at 50% 50%, #00000055, transparent 70%); margin-top: -8px; }
+  .rostercard b { font-size: 0.76rem; letter-spacing: -0.01em; margin-top: 0.15rem; }
+  .rostercard small { font-size: 0.6rem; color: var(--ink-soft); text-align: center; line-height: 1.25; }
   .sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .6rem 1.4rem; padding: .9rem; border-top: 1px solid var(--hairline); background: var(--card); }
   .sl { display: flex; align-items: center; gap: .55rem; font-size: .74rem; color: var(--ink-soft); min-width: 0; }
   .sl label { flex: none; width: 5.8rem; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
@@ -58,6 +68,8 @@
   <h1>buddykit</h1>
   <p class="sub">Parametric expressive identity for AI companions. One seed + a handful of traits → a living character.</p>
 
+  <div class="layout">
+  <div class="main">
   <div class="stage">
     <div class="statebar" id="statebar">state: idle</div>
     <canvas id="rig"></canvas>
@@ -165,10 +177,14 @@
     <div class="sliders" id="palette" style="display:none"></div>
     <div class="resetrow"><button id="reset">reset tuning</button> <button id="copycfg">copy config</button></div>
   </div>
+  </div>
 
-  <h2 class="rosterhead">Choose your buddy</h2>
-  <p class="rostersub">A dozen beings from the same handful of traits. Click one to take control of it above.</p>
-  <div class="roster" id="roster"></div>
+  <aside class="side">
+    <h2 class="rosterhead">Choose your buddy</h2>
+    <p class="rostersub">Click one to take control.</p>
+    <div class="roster" id="roster"></div>
+  </aside>
+  </div>
 </div>
 
 <script type="module">
@@ -312,25 +328,26 @@
   // ---- the roster: an MMO-style character select of preset beings ----
   // click one to load its full config into the hero above (chips/sliders sync)
   const ROSTER = [
-    { name: "Pip",      cls: "Round Googly · the classic",          cfg: { species: "blob", body: "round", eyes: "googly", theme: "ember", seed: 7 } },
-    { name: "Whiskers", cls: "Feline · ears + bowtie",              cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07a2f", accessories: ["ears", "bowtie"], seed: 21 } },
-    { name: "Sterling", cls: "Gentleman · cape, tophat, monocle",   cfg: { species: "blob", body: "round", eyes: "slit", theme: "#8a7cf0", accessories: ["cape", "tophat", "monocle"], seed: 33 } },
+    // first impression: slits — then ghosts — then the cute tier
+    { name: "Pip",      cls: "Round Slit · the classic",            cfg: { species: "blob", body: "round", eyes: "slit", theme: "ember", gradient: 0.25, seed: 7 } },
     { name: "Shade",    cls: "Ninja · scarf, horizontal slits",     cfg: { species: "blob", body: "round", eyes: "slit", eyeAngle: 90, theme: "#d6453d", accessories: ["scarf"], seed: 44 } },
-    { name: "Cubit",    cls: "Construct · hard core + shell ring",  cfg: { species: "blob", body: "round", eyes: "slit", hardness: 1, shell: true, core: "cube", family: "petal", theme: "#5b5763", gradient: 0.35, seed: 55 } },
-    { name: "Sous",     cls: "Chef · toque",                        cfg: { species: "blob", body: "bean", eyes: "dot", theme: "#4fb8a8", accessories: ["toque"], seed: 61 } },
-    { name: "Doc",      cls: "Medic · stethoscope + badge",         cfg: { species: "blob", body: "round", eyes: "arc", theme: "#7fb069", accessories: ["stethoscope", "badge"], seed: 72 } },
-    { name: "Rune",     cls: "Witch · hat + sprout",                cfg: { species: "blob", body: "droplet", eyes: "glint", theme: "#8a7cf0", accessories: ["witch"], seed: 83 } },
-    { name: "Foreman",  cls: "Builder · hardhat + toolbelt",        cfg: { species: "blob", body: "squircle", eyes: "googly", theme: "#e0a12f", accessories: ["hardhat", "toolbelt"], seed: 90 } },
-    { name: "Hopps",    cls: "Bunny · party regular",               cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07aa8", accessories: ["bunny", "party"], seed: 101 } },
     { name: "Vesper",   cls: "Ghost · petal shell, gem core",       cfg: { species: "emblem", family: "petal", core: "gem", theme: "sumi", seed: 12 } },
     { name: "Tetra",    cls: "Ghost · tetra shell, d20 core",       cfg: { species: "emblem", family: "tetra", core: "d20", theme: "ember", seed: 5 } },
+    { name: "Boxy",     cls: "Square · headset, on call",           cfg: { species: "blob", body: "round", eyes: "slit", squareness: 1, gradient: 0.35, theme: "#e07a2f", accessories: ["headset"], seed: 66 } },
+    { name: "Cubit",    cls: "Construct · hard core + shell ring",  cfg: { species: "blob", body: "round", eyes: "slit", hardness: 1, shell: true, core: "cube", family: "petal", theme: "#5b5763", gradient: 0.35, seed: 55 } },
+    { name: "Sterling", cls: "Gentleman · cape, tophat, monocle",   cfg: { species: "blob", body: "round", eyes: "slit", theme: "#8a7cf0", accessories: ["cape", "tophat", "monocle"], seed: 33 } },
+    { name: "Foreman",  cls: "Builder · square-ish, hardhat",       cfg: { species: "blob", body: "squircle", eyes: "slit", squareness: 0.6, theme: "#e0a12f", accessories: ["hardhat", "toolbelt"], seed: 90 } },
+    { name: "Whiskers", cls: "Feline · ears + bowtie",              cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07a2f", accessories: ["ears", "bowtie"], seed: 21 } },
+    { name: "Doc",      cls: "Medic · stethoscope + badge",         cfg: { species: "blob", body: "round", eyes: "arc", theme: "#7fb069", accessories: ["stethoscope", "badge"], seed: 72 } },
+    { name: "Sous",     cls: "Chef · toque",                        cfg: { species: "blob", body: "bean", eyes: "dot", theme: "#4fb8a8", accessories: ["toque"], seed: 61 } },
+    { name: "Hopps",    cls: "Bunny · party regular",               cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07aa8", accessories: ["bunny", "party"], seed: 101 } },
   ];
   const roster = document.getElementById("roster");
   for (const being of ROSTER) {
     const card = document.createElement("div");
     card.className = "rostercard";
     const c = document.createElement("canvas");
-    c.style.width = "150px"; c.style.height = "140px";
+    c.style.width = "104px"; c.style.height = "96px";
     card.appendChild(c);
     const plat = document.createElement("div");
     plat.className = "plat";

@@ -563,13 +563,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // sad emote on any eye style
           const er = bodyR * 0.16 * wide;
           const flip = eyeStyle === "sadarc" ? -1 : 1;
+          // when an emote overrode the eye style (joy/sad on slit-etc eyes),
+          // the expression owns screen space — resting eyeAngle must not
+          // rotate it or a horizontal-slit buddy gets sideways frowns
+          const restRot = eyeStyle === cfg.eyes ? eyeRot : 0;
           for (const sgn of [-1, 1]) {
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, flip * Math.max(0.25, ap));
-            ctx.rotate(sgn * (eyeRot + emoteSlant));
+            ctx.rotate(sgn * (restRot + emoteSlant));
             ctx.beginPath();
             ctx.arc(0, er * 0.45, er, Math.PI * 1.12, Math.PI * 1.88);
             ctx.strokeStyle = "#ffffff";
