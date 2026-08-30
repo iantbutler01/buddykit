@@ -1,6 +1,6 @@
 # buddykit
 
-![buddykit demo — hero buddy with character-select roster](docs/hero.png)
+![buddykit demo — hero buddy with character-select roster](docs/roster.png)
 
 Living 2D characters for AI companions. One seed + a handful of traits → an
 animated being with states, emotes, and a wardrobe. Canvas 2D, spring physics,
