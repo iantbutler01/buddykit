@@ -1,5 +1,5 @@
 {
-  "name": "buddykit",
+  "name": "@metonymous/buddykit",
   "version": "0.1.0",
   "description": "Parametric expressive identity for AI companions — a living core-and-shell character from a seed and a handful of traits. 2D, spring-animated, zero dependencies.",
   "type": "module",
@@ -25,6 +25,7 @@
     "vitest": "^3.0.0"
   },
   "license": "Apache-2.0",
+  "publishConfig": { "access": "public" },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/iantbutler01/buddykit.git"

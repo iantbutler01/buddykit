@@ -6,8 +6,12 @@ Living 2D characters for AI companions. One seed + a handful of traits → an
 animated being with states, emotes, and a wardrobe. Canvas 2D, spring physics,
 zero dependencies.
 
+```sh
+npm install @metonymous/buddykit
+```
+
 ```ts
-import { mountBuddy } from "buddykit";
+import { mountBuddy } from "@metonymous/buddykit";
 
 const buddy = mountBuddy(canvasEl, {
   species: "blob",        // "emblem" (geometric ghost) | "blob" (soft, two-eyed)
