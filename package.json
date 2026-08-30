@@ -24,5 +24,10 @@
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iantbutler01/buddykit.git"
+  },
+  "homepage": "https://github.com/iantbutler01/buddykit"
 }
