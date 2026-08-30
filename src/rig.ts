@@ -120,6 +120,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   function setState(s: BuddyState) {
     state = s;
     plates.forEach((p, i) => { p.delay = i * 0.045; p.born = t; });
+    // waking from away must reopen the lids here: the per-frame restore is
+    // guarded by eyeLid.t !== 0 (so blinks aren't stomped), and away leaves
+    // the target at exactly 0 — without this the eyes stay sealed until the
+    // next random blink fires (or forever at blinkRate 0)
+    if (s !== "away") eyeLid.set(STATES[s].eyeOpen);
     if (s === "listening") { eyeX.set(0); eyeY.set(0.18); }
     if (s === "needs_you") { eyeX.set(0); eyeY.set(0); }
     opts.onState?.(s);
@@ -153,6 +158,20 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
   function frame(now: number) {
     if (destroyed) return;
+    try {
+      frameInner(now);
+    } catch (e) {
+      // a draw exception must not kill the raf loop — log, reset canvas
+      // state (mid-frame throws leave save/transform stacks dirty), continue
+      console.error("buddykit: frame error", e);
+      if (typeof (ctx as CanvasRenderingContext2D & { reset?: () => void }).reset === "function") {
+        (ctx as CanvasRenderingContext2D & { reset: () => void }).reset();
+      }
+      if (!reduced) raf = requestAnimationFrame(frame);
+    }
+  }
+
+  function frameInner(now: number) {
     const dt0 = Math.min((now - last) / 1000, 0.05); last = now;
     if (!visible || (typeof document !== "undefined" && document.hidden)) {
       if (!reduced) raf = requestAnimationFrame(frame);
@@ -351,7 +370,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // paints so behind-layer accessories (capes) can use the same geometry
       const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
       const shiftX = cfg.eyeShift * bodyR * 0.3;
-      const wide = Math.min(1.25, eyeScale.p * (1 + attn * 0.18)) * cfg.eyeSize;
+      // lower clamp guards spring overshoot below zero (negative radii throw)
+      const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
       const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
         : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
         : cfg.eyes === "dot" ? { sx: 0.3, sy: 0.16, f: 0.8, ring: 0.24 }
@@ -588,7 +608,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // housing is fixed and concentric with the core; expression lives in the
       // iris (scale within the socket, capped so it never escapes the housing)
       const er = socketR;
-      const iris = Math.min(1.0, eyeScale.p * (1 + attn * 0.22));
+      // clamp ≥0: entering away both eye springs overshoot below zero, their
+      // product keeps eyeOn > 0.01, and a negative radius here throws
+      // IndexSizeError — which kills the raf loop and freezes the rig
+      const iris = Math.max(0.001, Math.min(1.0, eyeScale.p * (1 + attn * 0.22)));
       ctx.save();
       ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fill();
