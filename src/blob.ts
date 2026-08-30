@@ -33,11 +33,60 @@ const BODIES: Record<BlobBody, BodyDef> = {
   hexy:    { sx: 1.0,  sy: 0.96, bumps: [[-90, 0.12, 0.45], [-30, 0.12, 0.45], [30, 0.12, 0.45], [90, 0.12, 0.45], [150, 0.12, 0.45], [210, 0.12, 0.45]], wobble: 0.007 },
 };
 
-/** Trace the blob outline into the current path. squash: +stretch / -squash.
+/** A drawable path target — the live 2d context or a Path2D being built. */
+export type PathTarget = CanvasRenderingContext2D | Path2D;
+
+const N = 72;
+const COS = new Float64Array(N), SIN = new Float64Array(N), TH = new Float64Array(N);
+for (let i = 0; i < N; i++) {
+  TH[i] = (i / N) * Math.PI * 2 - Math.PI / 2;
+  COS[i] = Math.cos(TH[i]);
+  SIN[i] = Math.sin(TH[i]);
+}
+
+// static radial profiles are config-derived, not time-derived — memoize them
+// so the per-frame cost is just the wobble sines (matters when a gallery page
+// mounts dozens of rigs)
+const profileCache = new Map<string, Float64Array>();
+function staticProfile(body: BlobBody, squareness: number): Float64Array {
+  const key = body + "|" + squareness.toFixed(4);
+  const hit = profileCache.get(key);
+  if (hit) return hit;
+  const def = BODIES[body];
+  const n = 2 + squareness * 10;
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const th = TH[i];
+    let rad = squareness > 0
+      ? Math.pow(Math.pow(Math.abs(COS[i]), n) + Math.pow(Math.abs(SIN[i]), n), -1 / n)
+      : 1;
+    for (const [a0, amp, w] of def.bumps) {
+      let d = th - (a0 * Math.PI) / 180;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      rad += amp * Math.exp(-(d * d) / (2 * w * w));
+    }
+    out[i] = rad;
+  }
+  if (profileCache.size > 128) profileCache.clear();
+  profileCache.set(key, out);
+  return out;
+}
+const coreProfileCache = new Map<CoreShape, Float64Array>();
+function coreProfile(core: CoreShape): Float64Array {
+  const hit = coreProfileCache.get(core);
+  if (hit) return hit;
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) out[i] = coreRadiusAt(core, TH[i]);
+  coreProfileCache.set(core, out);
+  return out;
+}
+
+/** Trace the blob outline into a context or Path2D. squash: +stretch / -squash.
  *  hardness 0..1 morphs the organic silhouette toward the rigid core
  *  polyhedron (ray-sampled on the same radial grid); wobble fades with it. */
 export function traceBlob(
-  ctx: CanvasRenderingContext2D,
+  ctx: PathTarget,
   body: BlobBody,
   r: number,
   t: number,
@@ -48,38 +97,27 @@ export function traceBlob(
   core: CoreShape = "sphere",
 ) {
   const def = BODIES[body];
-  const N = 72;
   const soft = 1 - hardness;
-  // superellipse exponent: 2 = circle, higher = squarer (rounded corners for free)
-  const n = 2 + squareness * 10;
+  const base = staticProfile(body, squareness);
+  const cores = hardness > 0 ? coreProfile(core) : null;
+  const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
+  const kx = sx * (1 + squash * 0.5), ky = sy * (1 - squash);
+  const wob = def.wobble * soft;
   const pts: [number, number][] = [];
   for (let i = 0; i < N; i++) {
-    const th = (i / N) * Math.PI * 2 - Math.PI / 2;
-    let rad = squareness > 0
-      ? Math.pow(Math.pow(Math.abs(Math.cos(th)), n) + Math.pow(Math.abs(Math.sin(th)), n), -1 / n)
-      : 1;
-    for (const [a0, amp, w] of def.bumps) {
-      let d = th - (a0 * Math.PI) / 180;
-      while (d > Math.PI) d -= Math.PI * 2;
-      while (d < -Math.PI) d += Math.PI * 2;
-      rad += amp * Math.exp(-(d * d) / (2 * w * w));
-    }
-    rad += def.wobble * soft * (
-      Math.sin(th * 3 + phase + t * 0.9) * 0.6 +
-      Math.sin(th * 5 - phase * 2 + t * 0.6) * 0.4
-    );
-    const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
-    const xs = Math.cos(th) * rad * sx * (1 + squash * 0.5);
-    const ys = Math.sin(th) * rad * sy * (1 - squash);
-    if (hardness > 0) {
-      const rc = coreRadiusAt(core, th);
-      const xc = Math.cos(th) * rc, yc = Math.sin(th) * rc;
-      pts.push([(xs * soft + xc * hardness) * r, (ys * soft + yc * hardness) * r]);
+    const th = TH[i];
+    const rad = base[i] + (wob !== 0
+      ? wob * (Math.sin(th * 3 + phase + t * 0.9) * 0.6 + Math.sin(th * 5 - phase * 2 + t * 0.6) * 0.4)
+      : 0);
+    const xs = COS[i] * rad * kx;
+    const ys = SIN[i] * rad * ky;
+    if (cores) {
+      pts.push([(xs * soft + COS[i] * cores[i] * hardness) * r, (ys * soft + SIN[i] * cores[i] * hardness) * r]);
     } else {
       pts.push([xs * r, ys * r]);
     }
   }
-  ctx.beginPath();
+  if ("beginPath" in ctx) ctx.beginPath();   // Path2D targets start empty
   for (let i = 0; i < N; i++) {
     const a = pts[i], b = pts[(i + 1) % N];
     const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;

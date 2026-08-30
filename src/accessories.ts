@@ -61,8 +61,8 @@ export interface AccessoryGeom {
   eyeOY: number;
   /** glasses ring radius (already includes eyeSize/attention scale) */
   ringR: number;
-  /** trace the current-frame body outline into ctx — cloth clips to this so it morphs with the shape */
-  traceBody: (ctx: CanvasRenderingContext2D) => void;
+  /** current-frame body outline (traced once by the rig) — cloth clips to this so it morphs with the shape */
+  bodyPath: Path2D;
 }
 
 export function drawAccessory(
@@ -186,7 +186,7 @@ export function drawAccessory(
     // ninja wrap: body-clipped band over the lower body — cloth must follow
     // the silhouette (and never be a stroked arc: that reads as a mouth)
     ctx.save();
-    g.traceBody(ctx); ctx.clip();
+    ctx.clip(g.bodyPath);
     ctx.fillStyle = g.dark;
     ctx.fillRect(-bodyR * 1.6, g.botY * 0.44, bodyR * 3.2, bodyR * 1.6);
     ctx.restore();
@@ -212,7 +212,7 @@ export function drawAccessory(
     // silhouette rather than assume a round body
     const cy = g.botY * 0.62;
     ctx.save();
-    g.traceBody(ctx); ctx.clip();
+    ctx.clip(g.bodyPath);
     ctx.fillRect(-bodyR * 1.6, cy, bodyR * 3.2, bodyR * 1.6);
     // V neck opening in body color — narrow, so a layered tie fully covers it
     ctx.fillStyle = g.accent;
@@ -226,7 +226,7 @@ export function drawAccessory(
     // dark hood collar: body-clipped band over the lower body (never a stroked
     // arc — that reads as a mouth) + white drawstrings inside the silhouette
     ctx.save();
-    g.traceBody(ctx); ctx.clip();
+    ctx.clip(g.bodyPath);
     ctx.fillStyle = g.dark;
     ctx.fillRect(-bodyR * 1.6, g.botY * 0.64, bodyR * 3.2, bodyR * 1.6);
     ctx.restore();
@@ -345,7 +345,7 @@ export function drawAccessory(
   } else if (name === "toolbelt") {
     // body-clipped dark band low on the body + white pockets
     ctx.save();
-    g.traceBody(ctx); ctx.clip();
+    ctx.clip(g.bodyPath);
     // belt + one centered buckle — paired white pockets read as teeth
     ctx.fillStyle = g.dark;
     ctx.fillRect(-bodyR * 1.6, g.botY * 0.7, bodyR * 3.2, g.botY * 0.24);

@@ -23,9 +23,12 @@ export const STATES: Record<BuddyState, StateDef> = {
 
 /** One-shot expressive events. flare is the 360 celebration spin; the rest
  *  are emotes — short expressions layered over whatever state is active. */
-export type BuddyEvent = "flare" | "joy" | "surprise" | "nod" | "shake";
+export type BuddyEvent =
+  | "flare" | "joy" | "surprise" | "nod" | "shake"
+  | "sad" | "angry" | "tired" | "annoyed";
 
 /** Emote durations in seconds. */
 export const EMOTES: Record<Exclude<BuddyEvent, "flare">, number> = {
   joy: 1.1, surprise: 0.9, nod: 0.8, shake: 0.8,
+  sad: 1.6, angry: 1.2, tired: 2.0, annoyed: 1.2,
 };

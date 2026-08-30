@@ -185,26 +185,55 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     const R = Math.min(W, H) * 0.16 * cfg.scale;
 
     // ---- emote envelope: short expressions layered over the state ----
-    let eJoy = 0, emoteHop = 0, emoteTilt = 0, emoteSquash = 0, emoteWide = 0;
+    // channels: eJoy/eSad/eAngry/eTired/eAnnoy are raw envelopes read by the
+    // species renderers; the rest are shared body/eye channels
+    let eJoy = 0, eSad = 0, eAngry = 0, eTired = 0, eAnnoy = 0;
+    let emoteHop = 0, emoteTilt = 0, emoteSquash = 0, emoteWide = 0;
+    let emoteKick = 0, emoteP = 0;   // surprise: sharp-attack shell snap + shock ring
     if (emote) {
       emoteT += dt0;
       const p = Math.min(1, emoteT / EMOTES[emote]);
+      emoteP = p;
       const env = Math.sin(p * Math.PI);
       if (emote === "joy") {
         eJoy = env;
-        emoteHop = -Math.abs(Math.sin(p * Math.PI * 2)) * 9 * DPR;   // double hop
+        emoteHop = -Math.abs(Math.sin(p * Math.PI * 2)) * 14 * DPR;   // double hop
         emoteSquash = Math.sin(p * Math.PI * 4) * 0.05 * env;
       } else if (emote === "surprise") {
         emoteWide = env;
         emoteSquash = 0.12 * env;                                     // stretch tall
         emoteHop = -5 * DPR * env;
+        emoteKick = Math.min(1, p * 6) * (1 - p);                     // snap, then settle
       } else if (emote === "nod") {
         emoteHop = Math.sin(p * Math.PI * 3) * 6 * DPR;               // down-up-down
       } else if (emote === "shake") {
         emoteTilt = Math.sin(p * Math.PI * 5) * 0.1 * env;            // no-no wag
+      } else if (emote === "sad") {
+        eSad = env;
+        emoteHop = 11 * DPR * env;                                     // sink
+        emoteSquash = -0.12 * env;                                    // slump
+        emoteTilt = 0.15 * env;                                       // head hangs
+      } else if (emote === "angry") {
+        eAngry = env;
+        emoteTilt = Math.sin(p * Math.PI * 10) * 0.09 * env;         // tremble
+        emoteSquash = 0.09 * env;                                     // puff up
+      } else if (emote === "tired") {
+        eTired = env;
+        emoteHop = 13 * DPR * env;                                     // heavy sag
+        emoteTilt = 0.12 * env;                                       // slow list sideways
+        emoteSquash = -0.1 * env;
+      } else if (emote === "annoyed") {
+        eAnnoy = env;
+        emoteTilt = Math.sin(p * Math.PI) * 0.22;                     // look away
       }
       if (p >= 1) emote = null;
     }
+    // shared derived channels
+    const emoteLidMul = Math.max(0.18, 1 - 0.7 * eTired - 0.55 * eAnnoy);
+    const emoteSlant = -0.5 * eAngry + 0.35 * eSad;   // angry brows in, sad brows out
+    const emoteGazeY = 0.8 * eSad - 0.6 * eAnnoy;    // sad looks down, annoyed rolls up
+    const emoteSpread = -0.38 * eAngry - 0.28 * eSad - 0.24 * eTired;
+    const emoteDroop = 0.55 * eSad + 0.7 * eTired;   // geometry wilts — oversell it   // shell posture
 
     // ---- personality timers ----
     nextBlink -= dt * cfg.blinkRate;
@@ -230,7 +259,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     }
 
     // ---- springs (physical time) ----
-    gSpread.set(cfg.trust + S.spread * cfg.spread);
+    gSpread.set(cfg.trust + S.spread * cfg.spread + emoteSpread);
     eyeScale.set(S.eye * (1 + 0.5 * emoteWide));
     if (state === "away") eyeLid.set(0);
     else if (eyeLid.t !== 0) eyeLid.set(S.eyeOpen);
@@ -330,14 +359,21 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     const drawPlates = (Rb: number, szMul: number) => plates.forEach((p, i) => {
       const live = t - p.born > p.delay;
       const wob = Math.sin(t * 1.15 + p.jphase) * 0.035;
-      p.rad.set(Rb * (0.98 + gSpread.p * 1.5) * p.def.d * (1 + (live ? wob : 0)));
+      // emotes speak through the geometry: surprise kicks the shell outward,
+      // joy makes it flutter (post-spring so the flutter isn't low-passed away)
+      p.rad.set(Rb * (0.98 + gSpread.p * 1.5 + emoteWide * 0.55) * p.def.d * (1 + (live ? wob : 0)));
       p.scl.set(Rb * 0.52 * p.def.s * cfg.plateSize * szMul);
       if (live) { p.rad.step(dt0); p.scl.step(dt0); }
+      const flut = (eJoy * Math.sin(t * 18 + i * 1.7) * 0.08 + eAngry * Math.sin(t * 26 + i * 2.3) * 0.05) * Rb;
       const ang = p.def.a * Math.PI / 180;
-      const px = Math.cos(ang) * p.rad.p, py = Math.sin(ang) * p.rad.p;
+      const dist = p.rad.p + flut + emoteKick * Rb * 0.45;   // surprise snaps the shell wide, unsprung
+      const px = Math.cos(ang) * dist, py = Math.sin(ang) * dist + emoteDroop * Rb * 0.22;
       ctx.save();
       ctx.translate(px, py);
-      ctx.rotate(ang + Math.PI / 2 + (state === "working" ? Math.sin(t * 2 + i) * 0.05 : 0));
+      ctx.rotate(ang + Math.PI / 2
+        + (state === "working" ? Math.sin(t * 2 + i) * 0.05 : 0)
+        + eJoy * Math.sin(t * 14 + i * 2.1) * 0.24
+        + (Math.cos(ang) >= 0 ? 1 : -1) * emoteDroop * 0.55);
       const s = p.scl.p, pts = shapePts(p.def.sh, s);
       ctx.shadowColor = T.seam; ctx.shadowBlur = 8 * DPR; ctx.shadowOffsetY = 2.5 * DPR;
       poly(ctx, pts, s * 0.14); ctx.fillStyle = T.face; ctx.fill();
@@ -363,12 +399,15 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // squash couples to the bob for organic weight; away slumps.
       // A hard body is a hard object — squash fades out with hardness.
       const squash = soft * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.14 : 0) + (flareRing >= 0 ? 0.1 * Math.sin(Math.min(flareRing / 0.8, 1) * Math.PI) : 0));
-      const traceBody = (c: CanvasRenderingContext2D) =>
-        traceBlob(c, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness, hard, cfg.core);
+      // trace the body outline ONCE per frame into a Path2D — it is reused for
+      // the glow fill, depth fill, gradient, bevel clip/stroke, and every
+      // body-clipped accessory (was up to six full re-traces per frame)
+      const bodyPath = new Path2D();
+      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness, hard, cfg.core);
       // shared eye placement — the eye renderer and accessories (glasses,
       // headset) must agree on where the eyes are; computed before the body
       // paints so behind-layer accessories (capes) can use the same geometry
-      const exOff = eyeX.p * bodyR * 0.1, eyOff = eyeY.p * bodyR * 0.1;
+      const exOff = eyeX.p * bodyR * 0.1, eyOff = (eyeY.p + emoteGazeY) * bodyR * 0.1;
       const shiftX = cfg.eyeShift * bodyR * 0.3;
       // lower clamp guards spring overshoot below zero (negative radii throw)
       const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
@@ -385,7 +424,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         topY: -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard),
         botY: blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard,
         bodyR, t, dark: T.coreDisc, accent: T.accent,
-        traceBody,
+        bodyPath,
         eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
         eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
         eyeOX: shiftX + exOff * EYEP.f,
@@ -397,8 +436,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // flat saturated body — the accent IS the being (clean, no outline/shading)
       ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
       ctx.shadowBlur = 18 * DPR * G;
-      traceBody(ctx);
-      ctx.fillStyle = T.accent; ctx.fill();
+      ctx.fillStyle = T.accent; ctx.fill(bodyPath);
       ctx.shadowBlur = 0;
       // depth — a body among orbiting objects (or a hard one) must read as an
       // object itself: soft drop shadow + inner rim bevel; pure blobs stay flat
@@ -408,7 +446,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         ctx.shadowColor = `rgba(0,0,0,${0.38 * depth})`;
         ctx.shadowBlur = 12 * DPR;
         ctx.shadowOffsetY = 4 * DPR;
-        traceBody(ctx); ctx.fillStyle = T.accent; ctx.fill();
+        ctx.fillStyle = T.accent; ctx.fill(bodyPath);
         ctx.restore();
       }
       if (cfg.gradient > 0) {
@@ -418,19 +456,18 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         gr.addColorStop(0, `rgba(255,255,255,${ga})`);
         gr.addColorStop(0.55, "rgba(255,255,255,0)");
         gr.addColorStop(1, `rgba(0,0,0,${ga * 0.85})`);
-        ctx.fillStyle = gr; ctx.fill();
+        ctx.fillStyle = gr; ctx.fill(bodyPath);
       }
       if (depth > 0) {
         // inner rim bevel — top light, bottom shade, clipped inside the body
         ctx.save();
-        traceBody(ctx); ctx.clip();
+        ctx.clip(bodyPath);
         const bev = ctx.createLinearGradient(0, -bodyR, 0, bodyR);
         bev.addColorStop(0, `rgba(255,255,255,${0.3 * depth})`);
         bev.addColorStop(0.45, "rgba(255,255,255,0)");
         bev.addColorStop(1, `rgba(0,0,0,${0.26 * depth})`);
-        traceBody(ctx);
         ctx.strokeStyle = bev; ctx.lineWidth = 10 * DPR;
-        ctx.stroke();
+        ctx.stroke(bodyPath);
         ctx.restore();
       }
       const facetA = Math.max(0, (hard - 0.35) / 0.65);   // facets fade in past mid-hardness
@@ -446,10 +483,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades.
       // joy overrides the eye style with happy arcs at its peak; eyeAngle
       // rotates mirrored (90 = horizontal slits, small values = brow slants)
-      const eyeStyle = eJoy > 0.45 ? "arc" : cfg.eyes;
+      const eyeStyle: typeof cfg.eyes | "sadarc" = eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
       const eyeRot = (cfg.eyeAngle * Math.PI) / 180;
       if (eyeOn > 0.01 || state === "away") {
-        const ap = Math.max(0.06, eyeLid.p);
+        const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
         const closed = state === "away" || ap < 0.12;
         // closed-lid radius must not scale with the eye-open spring — away
         // drives eyeScale to 0 and the arcs would vanish with it
@@ -472,7 +509,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.scale(1, ap);
             ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
             ctx.fillStyle = "#ffffff"; ctx.fill();
-            const px = eyeX.p * er * 0.55 + sgn * er * 0.08, py = eyeY.p * er * 0.55 + er * 0.1;
+            const px = eyeX.p * er * 0.55 + sgn * er * 0.08, py = (eyeY.p + emoteGazeY) * er * 0.55 + er * 0.1;
             ctx.beginPath(); ctx.arc(px, py, er * 0.58, 0, 7);
             ctx.fillStyle = T.coreDisc; ctx.fill();
             ctx.beginPath(); ctx.arc(px + er * 0.2, py - er * 0.22, er * 0.16, 0, 7);
@@ -498,7 +535,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             // lid closes in screen space regardless of eye rotation —
             // scale-then-rotate, or a horizontal slit blinks sideways
             ctx.scale(1, ap);
-            ctx.rotate(sgn * (0.06 * soft + eyeRot));
+            ctx.rotate(sgn * (0.06 * soft + eyeRot + emoteSlant));
             ctx.beginPath();
             ctx.roundRect(-ew / 2, -eh / 2, ew, eh, rr);
             ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -514,22 +551,25 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, ap);
-            ctx.rotate(sgn * eyeRot);
+            ctx.rotate(sgn * (eyeRot + emoteSlant));
             ctx.beginPath();
             ctx.roundRect(-er, -er, er * 2, er * 2, rr);
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.restore();
           }
-        } else if (eyeStyle === "arc") {
-          // upturned happy crescents — permanent smize; blinks flatten them
+        } else if (eyeStyle === "arc" || eyeStyle === "sadarc") {
+          // upturned happy crescents — permanent smize; blinks flatten them.
+          // sadarc is the same crescent flipped: instant frown-eyes for the
+          // sad emote on any eye style
           const er = bodyR * 0.16 * wide;
+          const flip = eyeStyle === "sadarc" ? -1 : 1;
           for (const sgn of [-1, 1]) {
             const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
-            ctx.scale(1, Math.max(0.25, ap));
-            ctx.rotate(sgn * eyeRot);
+            ctx.scale(1, flip * Math.max(0.25, ap));
+            ctx.rotate(sgn * (eyeRot + emoteSlant));
             ctx.beginPath();
             ctx.arc(0, er * 0.45, er, Math.PI * 1.12, Math.PI * 1.88);
             ctx.strokeStyle = "#ffffff";
@@ -604,19 +644,33 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
     // ---- the eye: concentric lens, aperture blink ----
     if (eyeOn > 0.01) {
-      const ap = Math.max(0.05, eyeLid.p);
+      const ap = Math.max(0.05, eyeLid.p * emoteLidMul);
       // housing is fixed and concentric with the core; expression lives in the
       // iris (scale within the socket, capped so it never escapes the housing)
       const er = socketR;
       // clamp ≥0: entering away both eye springs overshoot below zero, their
       // product keeps eyeOn > 0.01, and a negative radius here throws
       // IndexSizeError — which kills the raf loop and freezes the rig
-      const iris = Math.max(0.001, Math.min(1.0, eyeScale.p * (1 + attn * 0.22)));
+      // joy on the lens: iris breathes and the optic brightens (Ghost-style
+      // delight is shell flutter + hot optic, never anthropomorphic eyes)
+      const joyBreathe = 1 + eJoy * 0.18 * Math.sin(t * 16);
+      const moodMul = 1 - 0.45 * eSad - 0.35 * eTired - 0.45 * eAngry;
+      const iris = Math.max(0.001, Math.min(1.0, eyeScale.p * (1 + attn * 0.22))) * joyBreathe * moodMul;
       ctx.save();
       ctx.beginPath(); ctx.arc(0, 0, er, 0, 7);
       ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fill();
       ctx.strokeStyle = T.glow + Math.min(1, 0.5 * G) + ")"; ctx.lineWidth = 1.4 * DPR; ctx.stroke();
-      ctx.shadowColor = T.glow + Math.min(1, 0.95 * G) + ")"; ctx.shadowBlur = 22 * DPR * (1 + attn) * G;
+      ctx.shadowColor = T.glow + Math.min(1, 0.95 * G) + ")";
+      ctx.shadowBlur = 22 * DPR * (1 + attn + eJoy * 0.9 + eAngry * 1.1 + emoteKick * 1.5) * (1 - 0.5 * eSad - 0.4 * eTired) * G;
+      // surprise shock ring — expands off the lens over the emote
+      if (emoteKick > 0.01 || (emoteWide > 0.01 && emoteP < 1)) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, 1 - emoteP) * 0.7;
+        ctx.strokeStyle = T.eye;
+        ctx.lineWidth = Math.max(1.5, 3 * DPR * (1 - emoteP));
+        ctx.beginPath(); ctx.arc(0, 0, er * (0.9 + emoteP * 2.6), 0, 7); ctx.stroke();
+        ctx.restore();
+      }
       ctx.beginPath(); ctx.arc(0, 0, er * 0.72 * ap * iris, 0, 7);
       ctx.strokeStyle = T.eye; ctx.lineWidth = Math.max(1.5, er * 0.16 * ap * iris); ctx.stroke();
       ctx.shadowBlur = 12 * DPR * G;
