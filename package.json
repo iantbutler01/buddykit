@@ -1,6 +1,6 @@
 {
   "name": "@metonymous/buddykit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Parametric expressive identity for AI companions — a living core-and-shell character from a seed and a handful of traits. 2D, spring-animated, zero dependencies.",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "vite demo",
@@ -25,7 +27,9 @@
     "vitest": "^3.0.0"
   },
   "license": "Apache-2.0",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/iantbutler01/buddykit.git"

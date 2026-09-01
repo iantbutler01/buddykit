@@ -12,7 +12,7 @@ export type AccessoryName =
   | "shirt" | "hoodie" | "cap"
   | "ears" | "bunny" | "cape" | "toque" | "mortarboard" | "stethoscope"
   | "badge" | "toolbelt" | "tophat" | "monocle" | "bowtie" | "beanie"
-  | "sunglasses" | "santa" | "witch" | "party";
+  | "sunglasses" | "santa" | "witch" | "party" | "mane";
 
 export const ACCESSORIES: AccessoryName[] = [
   "none", "antenna", "sprout", "bow", "halo", "crown",
@@ -20,7 +20,7 @@ export const ACCESSORIES: AccessoryName[] = [
   "shirt", "hoodie", "cap",
   "ears", "bunny", "cape", "toque", "mortarboard", "stethoscope",
   "badge", "toolbelt", "tophat", "monocle", "bowtie", "beanie",
-  "sunglasses", "santa", "witch", "party",
+  "sunglasses", "santa", "witch", "party", "mane",
 ];
 
 /** behind = before the body (capes), back = body→eyes, front = over the eyes. */
@@ -31,7 +31,7 @@ export function accessoryLayer(name: AccessoryName): "behind" | "back" | "front"
 
 /** Semantic draw order: base cloth under neckwear under headwear, regardless of selection order. */
 const RANK: Record<AccessoryName, number> = {
-  none: 0, cape: 0, shirt: 1, hoodie: 1, scarf: 2,
+  none: 0, cape: 0, mane: 1, shirt: 1, hoodie: 1, scarf: 2,
   tie: 3, bowtie: 3, stethoscope: 3, badge: 3, toolbelt: 3,
   antenna: 4, sprout: 4, bow: 4, halo: 4, crown: 4, headset: 4, hardhat: 4, cap: 4,
   ears: 4, bunny: 4, toque: 4, mortarboard: 4, tophat: 4, beanie: 4, santa: 4, witch: 4, party: 4,
@@ -424,6 +424,17 @@ export function drawAccessory(
     }
     ctx.fillStyle = "#ffffff";
     ctx.beginPath(); ctx.arc(0, -bodyR * 0.54, bodyR * 0.06, 0, 7); ctx.fill();
+  } else if (name === "mane") {
+    // Doozy-style scalp band: a darker tint from the crown down to the eye
+    // line, clipped to the body. Translucent so it reads as shading on any
+    // accent color; the eyes draw above it and punch through, producing the
+    // dipped-between-the-eyes read without any curve math.
+    ctx.save();
+    ctx.clip(g.bodyPath);
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    const bandBot = g.eyeCY + bodyR * 0.06;
+    ctx.fillRect(-bodyR * 1.6, topY - bodyR, bodyR * 3.2, bandBot - (topY - bodyR));
+    ctx.restore();
   } else if (name === "monocle") {
     // single ring on the right eye + chain down the cheek
     const { eyeCX, eyeCY, eyeOX, eyeOY, ringR } = g;
