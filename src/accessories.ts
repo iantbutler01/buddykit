@@ -426,14 +426,18 @@ export function drawAccessory(
     ctx.beginPath(); ctx.arc(0, -bodyR * 0.54, bodyR * 0.06, 0, 7); ctx.fill();
   } else if (name === "mane") {
     // Doozy-style scalp band: a darker tint from the crown down to the eye
-    // line, clipped to the body. Translucent so it reads as shading on any
-    // accent color; the eyes draw above it and punch through, producing the
-    // dipped-between-the-eyes read without any curve math.
+    // line, clipped to the body, with an owl-brow lobe dipping down BETWEEN
+    // the eyes (the signature read). One path, one fill — translucent color
+    // must not double-darken where the lobe overlaps the band.
     ctx.save();
     ctx.clip(g.bodyPath);
     ctx.fillStyle = "rgba(0,0,0,0.2)";
-    const bandBot = g.eyeCY + bodyR * 0.06;
-    ctx.fillRect(-bodyR * 1.6, topY - bodyR, bodyR * 3.2, bandBot - (topY - bodyR));
+    const er = g.ringR;
+    const bandBot = g.eyeCY - er * 0.1;
+    ctx.beginPath();
+    ctx.rect(-bodyR * 1.6, topY - bodyR, bodyR * 3.2, bandBot - (topY - bodyR));
+    ctx.ellipse(g.eyeOX, bandBot, Math.max(g.eyeCX * 0.6, er * 0.5), er * 0.8, 0, 0, 7);
+    ctx.fill();
     ctx.restore();
   } else if (name === "monocle") {
     // single ring on the right eye + chain down the cheek
