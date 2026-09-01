@@ -171,6 +171,7 @@
         <button class="th" data-v="sumi">sumi</button>
         <button class="th" data-v="signal">signal</button>
         <input type="color" id="accent" value="#7c5cff" title="one-color theme — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
+        <input type="color" id="acccolor" value="#d6453d" title="tint active accessories — accessoryColors" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
         <button id="palette-toggle" title="per-element colors">🎨 elements</button>
       </div>
     </div>
@@ -279,6 +280,12 @@
     if (open) syncPalette();
   });
   document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
+  // tint every active accessory; doctrine colors return via reset
+  document.getElementById("acccolor").addEventListener("input", (e) => {
+    const colors = {};
+    for (const a of buddy.getConfig().accessories) colors[a] = e.target.value;
+    buddy.configure({ accessoryColors: colors });
+  });
   document.querySelectorAll(".em").forEach((b) =>
     b.addEventListener("click", () => buddy.fire(b.dataset.v)));
 
@@ -313,6 +320,7 @@
   document.getElementById("reset").addEventListener("click", () => {
     const patch = {};
     for (const [key] of TUNING) {
+      buddy.configure({ accessoryColors: {} });
       const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "eyeAngle" || key === "squareness" || key === "hardness" || key === "gradient" ? 0 : 1;
       patch[key] = dv;
       inputs[key][0].value = dv;
@@ -336,9 +344,10 @@
     { name: "Tetra",    cls: "Ghost · tetra shell, d20 core",       cfg: { species: "emblem", family: "tetra", core: "d20", theme: "ember", seed: 5 } },
     { name: "Boxy",     cls: "Square · headset, on call",           cfg: { species: "blob", body: "round", eyes: "slit", squareness: 1, gradient: 0.35, theme: "#e07a2f", accessories: ["headset"], seed: 66 } },
     { name: "Cubit",    cls: "Construct · hard core + shell ring",  cfg: { species: "blob", body: "round", eyes: "slit", hardness: 1, shell: true, core: "cube", family: "petal", theme: "#5b5763", gradient: 0.35, seed: 55 } },
+    { name: "Sage",     cls: "The original · mane, first adopter tribute", cfg: { species: "blob", body: "round", eyes: "googly", squareness: 1, theme: "#7d9b90", accessories: ["mane"], eyeSpacing: 0.85, seed: 3 } },
     { name: "Sterling", cls: "Gentleman · cape, tophat, monocle",   cfg: { species: "blob", body: "round", eyes: "slit", theme: "#8a7cf0", accessories: ["cape", "tophat", "monocle"], seed: 33 } },
     { name: "Foreman",  cls: "Builder · square-ish, hardhat",       cfg: { species: "blob", body: "squircle", eyes: "slit", squareness: 0.6, theme: "#e0a12f", accessories: ["hardhat", "toolbelt"], seed: 90 } },
-    { name: "Whiskers", cls: "Feline · ears + bowtie",              cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07a2f", accessories: ["ears", "bowtie"], seed: 21 } },
+    { name: "Whiskers", cls: "Feline · ears + bowtie",              cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07a2f", accessories: ["ears", "bowtie"], accessoryColors: { bowtie: "#d6453d" }, seed: 21 } },
     { name: "Doc",      cls: "Medic · stethoscope + badge",         cfg: { species: "blob", body: "round", eyes: "arc", theme: "#7fb069", accessories: ["stethoscope", "badge"], seed: 72 } },
     { name: "Sous",     cls: "Chef · toque",                        cfg: { species: "blob", body: "bean", eyes: "dot", theme: "#4fb8a8", accessories: ["toque"], seed: 61 } },
     { name: "Hopps",    cls: "Bunny · party regular",               cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07aa8", accessories: ["bunny", "party"], seed: 101 } },
