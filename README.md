@@ -17,6 +17,7 @@ const buddy = mountBuddy(canvasEl, {
   species: "blob",        // "emblem" (geometric ghost) | "blob" (soft, two-eyed)
   body: "round", eyes: "googly", theme: "ember",
   accessories: ["ears", "bowtie"],
+  accessoryColors: { bowtie: "#d6453d" },   // per-accessory color overrides
   hardness: 0,            // 0 soft blob → 1 rigid faceted core
   shell: false,           // orbit the emblem's plate ring around any blob
   seed: 42,               // same seed → same being

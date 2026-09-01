@@ -31,6 +31,9 @@ export interface BuddyConfig {
   core: CoreShape;
   /** accessories — blob species; combine freely, drawn in array order (default []) */
   accessories: AccessoryName[];
+  /** per-accessory primary-color overrides, e.g. { tie: "#d6453d" } — details
+   *  (buckles, drawstrings, inner ears) keep their doctrine colors */
+  accessoryColors: Partial<Record<AccessoryName, string>>;
   /** registered theme name, or a raw BuddyTheme color object (default "ember") */
   theme: ThemeInput;
   /** resting shell spread 0..1 — trust posture (strict .15 / standard .35 / high .55) */
@@ -91,6 +94,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   eyes: "googly",
   core: "sphere",
   accessories: [],
+  accessoryColors: {},
   theme: "ember",
   trust: 0.35,
   seed: 42,
@@ -130,6 +134,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   cfg.eyeAngle = Math.max(-90, Math.min(90, cfg.eyeAngle));
   cfg.squareness = Math.max(0, Math.min(1, cfg.squareness));
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
+  cfg.accessoryColors = { ...cfg.accessoryColors };
   cfg.accessories = [...new Set(cfg.accessories)]
     .filter((a) => a !== "none")
     .sort((a, b) => accessoryRank(a) - accessoryRank(b));

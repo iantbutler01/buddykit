@@ -424,7 +424,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         topY: -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard),
         botY: blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard,
         bodyR, t, dark: T.coreDisc, accent: T.accent,
-        bodyPath,
+        bodyPath, colors: cfg.accessoryColors,
         eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
         eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
         eyeOX: shiftX + exOff * EYEP.f,

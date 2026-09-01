@@ -63,6 +63,8 @@ export interface AccessoryGeom {
   ringR: number;
   /** current-frame body outline (traced once by the rig) — cloth clips to this so it morphs with the shape */
   bodyPath: Path2D;
+  /** per-accessory primary-color overrides (cfg.accessoryColors) */
+  colors?: Partial<Record<AccessoryName, string>>;
 }
 
 export function drawAccessory(
@@ -73,9 +75,10 @@ export function drawAccessory(
 ) {
   if (name === "none") return;
   const { topY, bodyR, t } = g;
+  const co = g.colors?.[name];   // primary-color override; details keep doctrine colors
   ctx.save();
-  ctx.fillStyle = "#ffffff";
-  ctx.strokeStyle = "#ffffff";
+  ctx.fillStyle = co ?? "#ffffff";
+  ctx.strokeStyle = co ?? "#ffffff";
   ctx.lineCap = "round";
 
   if (name === "antenna") {
@@ -153,7 +156,7 @@ export function drawAccessory(
     ctx.beginPath(); ctx.arc(-bodyR * 0.27, cupY + bodyR * 0.58, bodyR * 0.07, 0, 7); ctx.fill();
   } else if (name === "hardhat") {
     ctx.translate(0, topY + bodyR * 0.12);
-    ctx.fillStyle = "#f5c542";
+    ctx.fillStyle = co ?? "#f5c542";
     ctx.beginPath();
     ctx.ellipse(0, 0, bodyR * 0.64, bodyR * 0.42, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
@@ -170,7 +173,7 @@ export function drawAccessory(
     const sway = Math.sin(t * 1.5) * 0.04;
     ctx.translate(0, g.botY * 0.4);
     ctx.rotate(sway);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     const kw = bodyR * 0.155, kh = g.botY * 0.12;
     ctx.beginPath();
     ctx.moveTo(-kw, 0); ctx.lineTo(kw, 0); ctx.lineTo(kw * 0.7, kh); ctx.lineTo(-kw * 0.7, kh);
@@ -187,11 +190,11 @@ export function drawAccessory(
     // the silhouette (and never be a stroked arc: that reads as a mouth)
     ctx.save();
     ctx.clip(g.bodyPath);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.fillRect(-bodyR * 1.6, g.botY * 0.44, bodyR * 3.2, bodyR * 1.6);
     ctx.restore();
     // knot + trailing tails on the right
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     const kx = bodyR * 0.8, ky = g.botY * 0.6;
     ctx.beginPath(); ctx.arc(kx, ky, bodyR * 0.11, 0, 7); ctx.fill();
     const flap = Math.sin(t * 2.1) * 0.08;
@@ -227,7 +230,7 @@ export function drawAccessory(
     // arc — that reads as a mouth) + white drawstrings inside the silhouette
     ctx.save();
     ctx.clip(g.bodyPath);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.fillRect(-bodyR * 1.6, g.botY * 0.64, bodyR * 3.2, bodyR * 1.6);
     ctx.restore();
     ctx.strokeStyle = "#ffffff";
@@ -243,7 +246,7 @@ export function drawAccessory(
   } else if (name === "cap") {
     // baseball cap: dark dome + forward brim + white button
     ctx.translate(0, topY + bodyR * 0.08);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath();
     ctx.ellipse(0, 0, bodyR * 0.46, bodyR * 0.3, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
@@ -258,7 +261,7 @@ export function drawAccessory(
       ctx.save();
       ctx.translate(sgn * bodyR * 0.44, topY + bodyR * 0.14);
       ctx.rotate(sgn * (0.24 + Math.sin(t * 1.7 + sgn) * 0.02));
-      ctx.fillStyle = g.accent;
+      ctx.fillStyle = co ?? g.accent;
       ctx.beginPath();
       ctx.moveTo(-bodyR * 0.17, 0); ctx.lineTo(bodyR * 0.17, 0); ctx.lineTo(0, -bodyR * 0.36);
       ctx.closePath(); ctx.fill();
@@ -274,7 +277,7 @@ export function drawAccessory(
       ctx.save();
       ctx.translate(sgn * bodyR * 0.3, topY + bodyR * 0.08);
       ctx.rotate(sgn * 0.14 + Math.sin(t * 1.3 + sgn * 2) * 0.05);
-      ctx.fillStyle = g.accent;
+      ctx.fillStyle = co ?? g.accent;
       ctx.beginPath(); ctx.ellipse(0, -bodyR * 0.34, bodyR * 0.115, bodyR * 0.4, 0, 0, 7); ctx.fill();
       ctx.fillStyle = "#ffffff";
       ctx.globalAlpha = 0.85;
@@ -284,7 +287,7 @@ export function drawAccessory(
   } else if (name === "cape") {
     // behind-layer: dark cloth flaring from the shoulders, fluttering hem
     const fl = Math.sin(t * 1.9) * 0.05, fl2 = Math.sin(t * 2.3 + 1.7) * 0.04;
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath();
     ctx.moveTo(-bodyR * 0.62, -bodyR * 0.18);
     ctx.quadraticCurveTo(-bodyR * (1.12 + fl), bodyR * 0.45, -bodyR * (0.98 + fl), bodyR * (0.98 + fl2));
@@ -302,7 +305,7 @@ export function drawAccessory(
   } else if (name === "mortarboard") {
     // graduation cap: dark diamond board + swaying tassel
     ctx.translate(0, topY + bodyR * 0.04);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath();
     ctx.ellipse(0, bodyR * 0.02, bodyR * 0.34, bodyR * 0.14, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
@@ -320,7 +323,7 @@ export function drawAccessory(
   } else if (name === "stethoscope") {
     // neck loop + chest piece
     // steep V — a shallow curve here reads as a mouth on a flat face
-    ctx.strokeStyle = g.dark; ctx.lineWidth = bodyR * 0.05;
+    ctx.strokeStyle = co ?? g.dark; ctx.lineWidth = bodyR * 0.05;
     ctx.beginPath();
     ctx.moveTo(-bodyR * 0.3, g.botY * 0.12);
     ctx.quadraticCurveTo(-bodyR * 0.22, g.botY * 0.55, bodyR * 0.05, g.botY * 0.66);
@@ -347,7 +350,7 @@ export function drawAccessory(
     ctx.save();
     ctx.clip(g.bodyPath);
     // belt + one centered buckle — paired white pockets read as teeth
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.fillRect(-bodyR * 1.6, g.botY * 0.7, bodyR * 3.2, g.botY * 0.24);
     ctx.strokeStyle = "#ffffff"; ctx.lineWidth = bodyR * 0.035;
     ctx.beginPath();
@@ -357,7 +360,7 @@ export function drawAccessory(
   } else if (name === "tophat") {
     // dark cylinder + brim + white band
     ctx.translate(0, topY + bodyR * 0.06);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath(); ctx.roundRect(-bodyR * 0.52, -bodyR * 0.075, bodyR * 1.04, bodyR * 0.1, bodyR * 0.04); ctx.fill();
     ctx.beginPath(); ctx.roundRect(-bodyR * 0.32, -bodyR * 0.6, bodyR * 0.64, bodyR * 0.56, bodyR * 0.035); ctx.fill();
     ctx.fillStyle = "#ffffff";
@@ -367,7 +370,7 @@ export function drawAccessory(
     // formal neck bow: two wings + center knot
     ctx.translate(0, g.botY * 0.44);
     ctx.rotate(Math.sin(t * 1.5) * 0.02);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     for (const sgn of [-1, 1]) {
       ctx.beginPath();
       ctx.moveTo(sgn * bodyR * 0.05, 0);
@@ -379,7 +382,7 @@ export function drawAccessory(
   } else if (name === "beanie") {
     // dark knit dome + band + pom
     ctx.translate(0, topY + bodyR * 0.1);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath(); ctx.ellipse(0, -bodyR * 0.04, bodyR * 0.5, bodyR * 0.34, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.roundRect(-bodyR * 0.52, -bodyR * 0.08, bodyR * 1.04, bodyR * 0.12, bodyR * 0.05); ctx.fill();
     ctx.fillStyle = "#ffffff";
@@ -387,7 +390,7 @@ export function drawAccessory(
   } else if (name === "santa") {
     // santa hat — red is the exception that makes it read; white brim + pom
     ctx.translate(0, topY + bodyR * 0.08);
-    ctx.fillStyle = "#d6453d";
+    ctx.fillStyle = co ?? "#d6453d";
     ctx.beginPath();
     ctx.moveTo(-bodyR * 0.44, 0);
     ctx.quadraticCurveTo(-bodyR * 0.2, -bodyR * 0.52, bodyR * 0.06, -bodyR * 0.5);
@@ -400,7 +403,7 @@ export function drawAccessory(
   } else if (name === "witch") {
     // witch hat: wide brim + bent cone + tiny buckle
     ctx.translate(0, topY + bodyR * 0.05);
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath(); ctx.ellipse(0, 0, bodyR * 0.6, bodyR * 0.085, 0, 0, 7); ctx.fill();
     ctx.beginPath();
     ctx.moveTo(-bodyR * 0.3, -bodyR * 0.02);
@@ -418,7 +421,7 @@ export function drawAccessory(
     ctx.beginPath();
     ctx.moveTo(-bodyR * 0.2, 0); ctx.lineTo(bodyR * 0.2, 0); ctx.lineTo(0, -bodyR * 0.5);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     for (const [dx, dy, r] of [[-0.06, -0.1, 0.035], [0.07, -0.2, 0.03], [-0.02, -0.32, 0.026]] as [number, number, number][]) {
       ctx.beginPath(); ctx.arc(bodyR * dx, bodyR * dy, bodyR * r, 0, 7); ctx.fill();
     }
@@ -431,7 +434,7 @@ export function drawAccessory(
     // must not double-darken where the lobe overlaps the band.
     ctx.save();
     ctx.clip(g.bodyPath);
-    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.fillStyle = co ?? "rgba(0,0,0,0.2)";
     const er = g.ringR;
     const bandBot = g.eyeCY - er * 0.1;
     ctx.beginPath();
@@ -456,11 +459,11 @@ export function drawAccessory(
     // one dark visor band across both eyes + temple stubs + glint slash
     const { eyeCX, eyeCY, eyeOX, eyeOY, ringR } = g;
     const w = eyeCX + ringR * 1.15, h = ringR * 1.35;
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = co ?? g.dark;
     ctx.beginPath();
     ctx.roundRect(eyeOX - w, eyeCY + eyeOY - h * 0.5, w * 2, h, h * 0.32);
     ctx.fill();
-    ctx.strokeStyle = g.dark; ctx.lineWidth = bodyR * 0.045;
+    ctx.strokeStyle = co ?? g.dark; ctx.lineWidth = bodyR * 0.045;
     for (const sgn of [-1, 1]) {
       ctx.beginPath();
       ctx.moveTo(eyeOX + sgn * w * 0.98, eyeCY + eyeOY - h * 0.15);
