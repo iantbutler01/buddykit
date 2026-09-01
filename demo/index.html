@@ -146,6 +146,7 @@
         <button class="ac" data-v="party">party</button>
         <button class="ac" data-v="mane">mane</button>
       </div>
+      <div class="g" id="accolors" style="display:none"></div>
       <div class="g"><span class="l">Shell</span>
         <button class="fam" data-v="tetra" aria-pressed="true">tetra</button>
         <button class="fam" data-v="octa">octa</button>
@@ -171,7 +172,6 @@
         <button class="th" data-v="sumi">sumi</button>
         <button class="th" data-v="signal">signal</button>
         <input type="color" id="accent" value="#7c5cff" title="one-color theme — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
-        <input type="color" id="acccolor" value="#d6453d" title="tint active accessories — accessoryColors" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
         <button id="palette-toggle" title="per-element colors">🎨 elements</button>
       </div>
     </div>
@@ -225,6 +225,7 @@
       document.querySelectorAll(".ac").forEach((x) => x.setAttribute("aria-pressed", "false"));
       acNone.setAttribute("aria-pressed", "true");
       buddy.configure({ accessories: [] });
+      renderAccColors();
       return;
     }
     b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
@@ -232,6 +233,7 @@
       .map((x) => x.dataset.v).filter((v) => v !== "none");
     acNone.setAttribute("aria-pressed", String(!list.length));
     buddy.configure({ accessories: list });
+    renderAccColors();
   }));
   press(".fam", (v) => buddy.setFamily(v));
   press(".co", (v) => buddy.setCore(v));
@@ -280,12 +282,36 @@
     if (open) syncPalette();
   });
   document.getElementById("flare").addEventListener("click", () => buddy.fire("flare"));
-  // tint every active accessory; doctrine colors return via reset
-  document.getElementById("acccolor").addEventListener("input", (e) => {
-    const colors = {};
-    for (const a of buddy.getConfig().accessories) colors[a] = e.target.value;
-    buddy.configure({ accessoryColors: colors });
-  });
+  // one swatch per active accessory — accessoryColors, individually
+  const accColorsBox = document.getElementById("accolors");
+  function renderAccColors() {
+    const cfg = buddy.getConfig();
+    accColorsBox.innerHTML = "";
+    accColorsBox.style.display = cfg.accessories.length ? "" : "none";
+    for (const a of cfg.accessories) {
+      const wrap = document.createElement("label");
+      wrap.style.cssText = "display:flex;align-items:center;gap:.28rem;font-size:.7rem;color:var(--ink-soft);cursor:pointer";
+      const inp = document.createElement("input");
+      inp.type = "color";
+      const cur = cfg.accessoryColors[a] || "";
+      inp.value = /^#[0-9a-fA-F]{6}$/.test(cur) ? cur : "#888888";
+      inp.style.cssText = "width:22px;height:22px;border:1px solid var(--hairline);border-radius:6px;background:var(--paper);padding:1px;cursor:pointer";
+      inp.addEventListener("input", () =>
+        buddy.configure({ accessoryColors: { ...buddy.getConfig().accessoryColors, [a]: inp.value } }));
+      const x = document.createElement("button");
+      x.textContent = "\u00d7"; x.title = "reset to doctrine color";
+      x.style.cssText = "padding:0 .32rem;font-size:.7rem;line-height:1.3";
+      x.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const c = { ...buddy.getConfig().accessoryColors };
+        delete c[a];
+        buddy.configure({ accessoryColors: c });
+        renderAccColors();
+      });
+      wrap.append(inp, document.createTextNode(a), x);
+      accColorsBox.appendChild(wrap);
+    }
+  }
   document.querySelectorAll(".em").forEach((b) =>
     b.addEventListener("click", () => buddy.fire(b.dataset.v)));
 
@@ -321,6 +347,7 @@
     const patch = {};
     for (const [key] of TUNING) {
       buddy.configure({ accessoryColors: {} });
+      renderAccColors();
       const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "eyeAngle" || key === "squareness" || key === "hardness" || key === "gradient" ? 0 : 1;
       patch[key] = dv;
       inputs[key][0].value = dv;
@@ -399,6 +426,7 @@
         inputs[key][1].textContent = Number(cfg[key]).toFixed(2);
       }
     }
+    renderAccColors();
   }
 </script>
 </body>
