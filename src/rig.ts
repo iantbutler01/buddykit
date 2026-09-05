@@ -14,6 +14,7 @@ import { STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
 import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
+import { drawLens } from "./lens";
 import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
@@ -230,7 +231,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       if (p >= 1) emote = null;
     }
     // shared derived channels
-    const emoteLidMul = Math.max(0.18, 1 - 0.7 * eTired - 0.55 * eAnnoy);
+    const grav = cfg.gravity;
+    const emoteLidMul = Math.max(0.18, 1 - 0.7 * eTired - 0.55 * eAnnoy) * (1 - 0.3 * grav);
     const emoteSlant = -0.5 * eAngry + 0.35 * eSad;   // angry brows in, sad brows out
     const emoteGazeY = 0.8 * eSad - 0.6 * eAnnoy;    // sad looks down, annoyed rolls up
     const emoteSpread = -0.38 * eAngry - 0.28 * eSad - 0.24 * eTired;
@@ -248,15 +250,16 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     if (nextGlance <= 0) {
       nextGlance = 1.6 + rand() * 2.8;
       if (state === "idle" || state === "working") {
-        eyeX.set((rand() - 0.5) * 0.5);
-        eyeY.set((rand() - 0.4) * 0.35);
+        eyeX.set((rand() - 0.5) * 0.5 * (1 - 0.5 * grav));
+        eyeY.set((rand() - 0.4) * 0.35 * (1 - 0.5 * grav));
       }
     }
     nextTilt -= dt;
     if (nextTilt <= 0) {
       nextTilt = 3.5 + rand() * 4;
-      if (state === "idle") bodyTilt.set(spinAccum + (rand() - 0.5) * 0.24 * cfg.tiltiness);
-      else if (state !== "away") bodyTilt.set(spinAccum + S.tilt * cfg.tiltiness);
+      const tiltMul = cfg.tiltiness * (1 - 0.7 * grav);
+      if (state === "idle") bodyTilt.set(spinAccum + (rand() - 0.5) * 0.24 * tiltMul);
+      else if (state !== "away") bodyTilt.set(spinAccum + S.tilt * tiltMul);
     }
 
     // ---- springs (physical time) ----
@@ -264,7 +267,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     eyeScale.set(S.eye * (1 + 0.5 * emoteWide));
     if (state === "away") eyeLid.set(0);
     else if (eyeLid.t !== 0) eyeLid.set(S.eyeOpen);
-    bodyY.set(Math.sin(t * 1.5) * 5 * DPR * S.bob * cfg.bob);
+    bodyY.set(Math.sin(t * (1.5 - 0.5 * grav)) * 5 * DPR * S.bob * cfg.bob * (1 - 0.6 * grav));
     [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt].forEach((s) => s.step(dt0));
 
     // needs_you double-pulse
@@ -316,7 +319,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         col: [T.eyeHot, "#ffffff", T.eye][(rand() * 3) | 0],
       });
     };
-    const spRate = cfg.sparkle * (state === "needs_you" ? 2.4 : state === "working" ? 1.5
+    const spRate = cfg.sparkle * (1 - grav) * (state === "needs_you" ? 2.4 : state === "working" ? 1.5
       : state === "listening" ? 0.7 : state === "away" ? 0.15 : 1);
     moteAcc += dt * spRate;
     while (moteAcc >= 1) { moteAcc -= 1; spawnMote(false); }
@@ -399,7 +402,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       if (cfg.shell) drawPlates(bodyR * 1.3, 0.62);
       const squash = 0.5 * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.1 : 0));
       const bodyPath = new Path2D();
-      traceBlock(bodyPath, cfg.build, bodyR, squash);
+      traceBlock(bodyPath, cfg.build, bodyR, squash, grav);
       const anchor = blockEyeAnchor(cfg.build, bodyR, squash);
       const exOff = eyeX.p * bodyR * 0.08, eyOff = (eyeY.p + emoteGazeY) * bodyR * 0.08;
       const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
@@ -430,11 +433,14 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         bevel: 0.55 + 0.45 * cfg.gradient,
         shuffle: state === "working" ? 1 : eJoy,
         t,
+        gravity: grav,
       });
       for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
-        const style: Parameters<typeof drawBlockEyes>[1]["style"] = eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
+        const style: Parameters<typeof drawBlockEyes>[1]["style"] =
+          cfg.eyes === "lens" ? "lens" : eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
+        const lensIris = (1 + attn * 0.22) * (1 + eJoy * 0.18 * Math.sin(t * 16)) * (1 - 0.45 * eSad - 0.35 * eTired - 0.45 * eAngry);
         drawBlockEyes(ctx, {
           style,
           cx: geom.eyeCX, cy: geom.eyeCY, ox: geom.eyeOX, oy: geom.eyeOY,
@@ -443,6 +449,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           gx: eyeX.p, gy: eyeY.p + emoteGazeY,
           slant: emoteSlant, rot: style === cfg.eyes ? (cfg.eyeAngle * Math.PI) / 180 : 0,
           dark: T.coreDisc, hot: T.eyeHot, edge: T.edge, DPR,
+          lens: { iris: Math.max(0.05, lensIris), T, G, DPR },
         });
       }
       for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
@@ -464,7 +471,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // the glow fill, depth fill, gradient, bevel clip/stroke, and every
       // body-clipped accessory (was up to six full re-traces per frame)
       const bodyPath = new Path2D();
-      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, cfg.squareness, hard, cfg.core);
+      const squareEff = cfg.squareness + (1 - cfg.squareness) * 0.55 * grav;
+      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, squareEff, hard, cfg.core);
       // shared eye placement — the eye renderer and accessories (glasses,
       // headset) must agree on where the eyes are; computed before the body
       // paints so behind-layer accessories (capes) can use the same geometry
@@ -477,6 +485,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         : cfg.eyes === "dot" ? { sx: 0.3, sy: 0.16, f: 0.8, ring: 0.24 }
         : cfg.eyes === "arc" ? { sx: 0.32, sy: 0.16, f: 0.6, ring: 0.28 }
         : cfg.eyes === "ring" ? { sx: 0.32, sy: 0.16, f: 0.8, ring: 0.26 }
+        : cfg.eyes === "lens" ? { sx: 0, sy: 0.1, f: 0.6, ring: 0.42 }
         : { sx: 0.34, sy: 0.12, f: 1, ring: 0.26 };
       const coreOutline = CORES[cfg.core].outline;
       const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
@@ -544,7 +553,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades.
       // joy overrides the eye style with happy arcs at its peak; eyeAngle
       // rotates mirrored (90 = horizontal slits, small values = brow slants)
-      const eyeStyle: typeof cfg.eyes | "sadarc" = eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
+      const eyeStyle: typeof cfg.eyes | "sadarc" =
+        cfg.eyes === "lens" ? "lens" : eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
       const eyeRot = (cfg.eyeAngle * Math.PI) / 180;
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
@@ -558,7 +568,19 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.6 * DPR; ctx.lineCap = "round";
           ctx.stroke();
         };
-        if (eyeStyle === "googly") {
+        if (eyeStyle === "lens") {
+          // one aperture optic — the emblem's eye on a soft body. Mood lives in
+          // the iris (attention and joy widen, sad/tired/angry narrow).
+          const er = bodyR * 0.34 * Math.max(0.4, wide);
+          ctx.save();
+          ctx.translate(geom.eyeOX, geom.eyeCY + geom.eyeOY);
+          if (closed) { sleepArc(restR * 1.1); ctx.restore(); }
+          else {
+            const iris = Math.max(0.05, (1 + attn * 0.22) * (1 + eJoy * 0.18 * Math.sin(t * 16)) * (1 - 0.45 * eSad - 0.35 * eTired - 0.45 * eAngry));
+            drawLens(ctx, { er, ap, iris, T, G, DPR });
+            ctx.restore();
+          }
+        } else if (eyeStyle === "googly") {
           // Doozy-style: big near-white sclera, large pupil chasing the gaze, glint.
           // Overexaggerated by default — the eyes are the only feature, so they carry.
           const er = bodyR * 0.3 * wide;

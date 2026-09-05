@@ -169,7 +169,7 @@ describe("blob eyes", () => {
   it("six styles, googly default", async () => {
     const { BLOB_EYES } = await import("../src/blob");
     const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
-    expect(BLOB_EYES).toEqual(["googly", "slit", "glint", "dot", "arc", "ring"]);
+    expect(BLOB_EYES).toEqual(["googly", "slit", "glint", "dot", "arc", "ring", "lens"]);
     expect(DEFAULT_CONFIG.eyes).toBe("googly");
     expect(resolveConfig({ eyes: "slit" }).eyes).toBe("slit");
   });
@@ -178,10 +178,12 @@ describe("blob eyes", () => {
 describe("block species", () => {
   it("ships five builds and a stacked slab layout that nests inside the crown/leg anchors", async () => {
     const { BLOCK_BUILDS, blockSlabs, blockTopY, blockBotY, blockEyeAnchor } = await import("../src/block");
-    expect(BLOCK_BUILDS).toEqual(["stout", "tall", "wide", "mini", "long"]);
+    expect(BLOCK_BUILDS).toEqual(["stout", "tall", "wide", "mini", "long", "sentinel"]);
     for (const build of BLOCK_BUILDS) {
       const slabs = blockSlabs(build, 100);
-      expect(slabs.map((s) => s.kind).sort()).toEqual(["crown", "head", "leg", "leg", "nub", "nub", "torso"]);
+      const kinds = slabs.map((s) => s.kind).sort();
+      expect(kinds.filter((k) => k !== "nub")).toEqual(["crown", "head", "leg", "leg", "torso"]);
+      expect(kinds.filter((k) => k === "nub").length).toBe(build === "sentinel" ? 0 : 2);
       const top = blockTopY(build, 100), bot = blockBotY(build, 100);
       expect(top).toBeLessThan(0);
       expect(bot).toBeGreaterThan(0);
@@ -203,6 +205,16 @@ describe("block species", () => {
     expect(tallH).toBeLessThan(restH);   // +squash squashes vertically (kx up, ky down)
     const head = tall.find((s) => s.kind === "head")!, torso = tall.find((s) => s.kind === "torso")!;
     expect(Math.abs(head.y + head.h - torso.y)).toBeLessThan(1e-9);
+  });
+
+  it("gravity clamps to 0..1 and squares the block's corners", async () => {
+    const { resolveConfig } = await import("../src/config");
+    const { blockSlabs } = await import("../src/block");
+    expect(resolveConfig({ gravity: 3 }).gravity).toBe(1);
+    expect(resolveConfig({ gravity: -1 }).gravity).toBe(0);
+    expect(resolveConfig({}).gravity).toBe(0);
+    const soft = blockSlabs("stout", 100, 0, 0), grave = blockSlabs("stout", 100, 0, 1);
+    expect(grave[0].r).toBeLessThan(soft[0].r);
   });
 
   it("config accepts species block with a default build", async () => {

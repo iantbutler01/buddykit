@@ -17,3 +17,5 @@ export { ACCESSORIES, drawAccessory } from "./accessories";
 export type { AccessoryName } from "./accessories";
 export { BLOCK_BUILDS, blockSlabs, traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
 export type { BlockBuild, Slab } from "./block";
+export { drawLens } from "./lens";
+export type { LensParams } from "./lens";

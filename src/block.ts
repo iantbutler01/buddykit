@@ -7,9 +7,10 @@
  * grammar; a block squashes a little, never wobbles.
  */
 import type { PathTarget } from "./blob";
+import { drawLens, type LensParams } from "./lens";
 
-export type BlockBuild = "stout" | "tall" | "wide" | "mini" | "long";
-export const BLOCK_BUILDS: BlockBuild[] = ["stout", "tall", "wide", "mini", "long"];
+export type BlockBuild = "stout" | "tall" | "wide" | "mini" | "long" | "sentinel";
+export const BLOCK_BUILDS: BlockBuild[] = ["stout", "tall", "wide", "mini", "long", "sentinel"];
 
 /** Slab proportions in body-radius units. Widths are full widths, heights are full heights. */
 interface BuildDef {
@@ -28,6 +29,8 @@ const BUILDS: Record<BlockBuild, BuildDef> = {
   wide:  { crownW: 1.9,  crownH: 0.3,  headW: 1.8,  headH: 0.74, torsoW: 1.5, torsoH: 0.56, legW: 0.5,  legH: 0.26, legGap: 0.3,  nubW: 0.22, nubH: 0.3,  eyeSpread: 0.78, eyeDrop: 0.5 },
   mini:  { crownW: 1.5,  crownH: 0.28, headW: 1.4,  headH: 1.0,  torsoW: 0.96, torsoH: 0.4, legW: 0.34, legH: 0.22, legGap: 0.14, nubW: 0.16, nubH: 0.26, eyeSpread: 0.6,  eyeDrop: 0.52 },
   long:  { crownW: 1.3,  crownH: 0.26, headW: 1.16, headH: 0.7,  torsoW: 1.04, torsoH: 1.0, legW: 0.34, legH: 0.42, legGap: 0.14, nubW: 0.18, nubH: 0.5,  eyeSpread: 0.54, eyeDrop: 0.5 },
+  // the monolith: no nubs, a narrow crown, a long undivided torso — built for a visor or a lens
+  sentinel: { crownW: 1.0, crownH: 0.2, headW: 1.08, headH: 0.98, torsoW: 1.0, torsoH: 1.12, legW: 0.4, legH: 0.3, legGap: 0.12, nubW: 0, nubH: 0, eyeSpread: 0.5, eyeDrop: 0.5 },
 };
 
 export interface Slab {
@@ -39,12 +42,12 @@ export interface Slab {
 /** The slab layout for a build at body radius r. squash: +stretch / -squash,
  *  applied as a whole-figure scale so the stack never separates. The figure
  *  is centred so that y = 0 sits mid-torso; the eyes ride in the head. */
-export function blockSlabs(build: BlockBuild, r: number, squash = 0): Slab[] {
+export function blockSlabs(build: BlockBuild, r: number, squash = 0, gravity = 0): Slab[] {
   const d = BUILDS[build];
   const kx = 1 + squash * 0.35, ky = 1 - squash * 0.7;
   const totalH = d.crownH + d.headH + d.torsoH + d.legH;
   const top = -totalH * 0.55;   // visual centre slightly below the head
-  const corner = 0.07;
+  const corner = 0.07 * (1 - gravity) + 0.012;   // gravity squares the corners
   const slab = (kind: Slab["kind"], cx: number, y: number, w: number, h: number, rr = corner): Slab => ({
     kind,
     x: (cx - w / 2) * r * kx,
@@ -56,15 +59,19 @@ export function blockSlabs(build: BlockBuild, r: number, squash = 0): Slab[] {
   const crownY = top, headY = crownY + d.crownH, torsoY = headY + d.headH, legY = torsoY + d.torsoH;
   const nubY = torsoY + d.torsoH * 0.12;
   const legOff = d.legGap / 2 + d.legW / 2;
-  return [
-    slab("nub", -(d.torsoW / 2 + d.nubW / 2 - 0.02), nubY, d.nubW, d.nubH, 0.05),
-    slab("nub", d.torsoW / 2 + d.nubW / 2 - 0.02, nubY, d.nubW, d.nubH, 0.05),
-    slab("leg", -legOff, legY, d.legW, d.legH, 0.05),
-    slab("leg", legOff, legY, d.legW, d.legH, 0.05),
+  const out: Slab[] = [];
+  if (d.nubW > 0) {
+    out.push(slab("nub", -(d.torsoW / 2 + d.nubW / 2 - 0.02), nubY, d.nubW, d.nubH, corner * 0.7));
+    out.push(slab("nub", d.torsoW / 2 + d.nubW / 2 - 0.02, nubY, d.nubW, d.nubH, corner * 0.7));
+  }
+  out.push(
+    slab("leg", -legOff, legY, d.legW, d.legH, corner * 0.7),
+    slab("leg", legOff, legY, d.legW, d.legH, corner * 0.7),
     slab("torso", 0, torsoY, d.torsoW, d.torsoH),
-    slab("head", 0, headY, d.headW, d.headH, 0.09),
-    slab("crown", 0, crownY, d.crownW, d.crownH, 0.06),
-  ];
+    slab("head", 0, headY, d.headW, d.headH, corner * 1.3),
+    slab("crown", 0, crownY, d.crownW, d.crownH, corner * 0.85),
+  );
+  return out;
 }
 
 function rect(ctx: PathTarget, s: Slab) {
@@ -72,9 +79,9 @@ function rect(ctx: PathTarget, s: Slab) {
 }
 
 /** The whole-figure silhouette (union of slabs) — glow, shadow and cloth clips. */
-export function traceBlock(ctx: PathTarget, build: BlockBuild, r: number, squash = 0) {
+export function traceBlock(ctx: PathTarget, build: BlockBuild, r: number, squash = 0, gravity = 0) {
   if ("beginPath" in ctx) ctx.beginPath();
-  for (const s of blockSlabs(build, r, squash)) rect(ctx, s);
+  for (const s of blockSlabs(build, r, squash, gravity)) rect(ctx, s);
 }
 
 /** Crown top y (negative) and leg bottom y (positive) — accessory anchors. */
@@ -108,12 +115,14 @@ export interface BlockPaint {
   /** legs shuffle phase (0 = still) */
   shuffle: number;
   t: number;
+  /** 0..1 — squares corners, kills the top highlight, deepens the shade */
+  gravity: number;
 }
 
 /** Paint every slab: fill, shade strip, top highlight, outline. Nubs and legs
  *  go first so the torso overlaps them; the crown lands over the head. */
 export function drawBlockBody(ctx: CanvasRenderingContext2D, build: BlockBuild, r: number, squash: number, p: BlockPaint) {
-  const slabs = blockSlabs(build, r, squash);
+  const slabs = blockSlabs(build, r, squash, p.gravity);
   const lw = Math.max(1.5 * p.DPR, r * 0.075);   // thick outline scales with the figure (r is already in device px)
   let legIdx = 0;
   for (const s of slabs) {
@@ -135,9 +144,9 @@ export function drawBlockBody(ctx: CanvasRenderingContext2D, build: BlockBuild, 
       // shade strip down the right, highlight along the top — the two-tone
       // that makes a flat rectangle read as a chunk
       const strip = Math.max(2, s.w * 0.14);
-      ctx.fillStyle = `rgba(0,0,0,${(dark ? 0.22 : 0.16) * p.bevel})`;
+      ctx.fillStyle = `rgba(0,0,0,${(dark ? 0.22 : 0.16) * p.bevel * (1 + 0.8 * p.gravity)})`;
       ctx.fillRect(s.x + s.w - strip, s.y, strip, s.h);
-      ctx.fillStyle = `rgba(255,255,255,${(dark ? 0.12 : 0.22) * p.bevel})`;
+      ctx.fillStyle = `rgba(255,255,255,${(dark ? 0.12 : 0.22) * p.bevel * (1 - p.gravity)})`;
       ctx.fillRect(s.x, s.y, s.w, Math.max(2, s.h * 0.12));
       ctx.restore();
     }
@@ -150,7 +159,7 @@ export function drawBlockBody(ctx: CanvasRenderingContext2D, build: BlockBuild, 
   }
 }
 
-export type BlockEyeStyle = "googly" | "slit" | "glint" | "dot" | "arc" | "ring" | "sadarc";
+export type BlockEyeStyle = "googly" | "slit" | "glint" | "dot" | "arc" | "ring" | "sadarc" | "lens";
 
 export interface BlockEyeParams {
   style: BlockEyeStyle;
@@ -168,6 +177,8 @@ export interface BlockEyeParams {
   slant: number; rot: number;
   dark: string; hot: string; edge: string;
   DPR: number;
+  /** lens optic parameters — required for style "lens" */
+  lens?: Omit<LensParams, "er" | "ap">;
 }
 
 /** Square-socket eyes. Every style is a rectangle grammar: sockets are
@@ -183,6 +194,22 @@ export function drawBlockEyes(ctx: CanvasRenderingContext2D, e: BlockEyeParams) 
     sq(-w / 2, -s * 0.06, w, s * 0.12, s * 0.04);
     ctx.fillStyle = "#ffffff"; ctx.fill();
   };
+  if (e.style === "lens") {
+    // one square socket in the head, the aperture optic inside it
+    const w = s * 1.35, h = s * 1.15;
+    ctx.save();
+    ctx.translate(e.ox * 0.3, e.cy + e.oy * 0.3);
+    sq(-w / 2, -h / 2, w, h, s * 0.1);
+    ctx.fillStyle = e.dark; ctx.fill();
+    ctx.strokeStyle = e.edge; ctx.lineWidth = Math.max(1.2, s * 0.06); ctx.stroke();
+    if (e.closed) sleepBar(s * 0.8);
+    else if (e.lens) {
+      ctx.translate(e.gx * s * 0.12, e.gy * s * 0.1);
+      drawLens(ctx, { ...e.lens, er: s * 0.42, ap: e.ap });
+    }
+    ctx.restore();
+    return;
+  }
   if (e.style === "slit") {
     // one visor band across the head with two lit pixels — the robot read
     const bandW = e.headW * 0.86, bandH = s * 0.72;

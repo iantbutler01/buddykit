@@ -67,6 +67,9 @@ export interface BuddyConfig {
   squareness: number;
   /** blob body gradient 0..1 — 0 = flat fill, 1 = full soft top-light/bottom-shade */
   gradient: number;
+  /** gravity 0..1 — 0 playful, 1 grave: hard corners, muted highlights,
+   *  narrower eyes, slower bob and tilt, no pixie dust (default 0) */
+  gravity: number;
   /** glow/bloom intensity */
   glow: number;
   /** pixie-dust emission rate (0 = off) */
@@ -114,6 +117,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   eyeAngle: 0,
   squareness: 0,
   gradient: 0,
+  gravity: 0,
   glow: 1,
   sparkle: 1,
 
@@ -139,6 +143,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   cfg.eyeAngle = Math.max(-90, Math.min(90, cfg.eyeAngle));
   cfg.squareness = Math.max(0, Math.min(1, cfg.squareness));
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
+  cfg.gravity = Math.max(0, Math.min(1, cfg.gravity));
   cfg.accessoryColors = { ...cfg.accessoryColors };
   cfg.accessories = [...new Set(cfg.accessories)]
     .filter((a) => a !== "none")

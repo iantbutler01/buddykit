@@ -15,10 +15,11 @@ import { mountBuddy } from "@metonymous/buddykit";
 
 const buddy = mountBuddy(canvasEl, {
   species: "blob",        // "emblem" (geometric ghost) | "blob" (soft, two-eyed) | "block" (stacked slabs)
-  body: "round", eyes: "googly", theme: "ember",
+  body: "round", eyes: "googly", theme: "ember",   // eyes also: slit | glint | dot | arc | ring | lens (one optic)
   build: "stout",         // block species: stout | tall | wide | mini | long
   accessories: ["ears", "bowtie"],
   accessoryColors: { bowtie: "#d6453d" },   // per-accessory color overrides
+  gravity: 0,             // 0 playful → 1 grave: hard corners, muted light, narrow eyes, slow motion
   hardness: 0,            // 0 soft blob → 1 rigid faceted core
   shell: false,           // orbit the emblem's plate ring around any blob
   seed: 42,               // same seed → same being
