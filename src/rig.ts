@@ -9,13 +9,13 @@
  */
 import { Spring } from "./spring";
 import { BuddyTheme, resolveTheme } from "./themes";
-import { FAMILIES, FamilyName, PlateDef, shapePts, isAttachedFamily } from "./families";
+import { FAMILIES, FamilyName, PlateDef, shapePts, shapeDetail, shapeAccent } from "./families";
 import { STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
-import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
+import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes, applyHeadTransform } from "./block";
+import { LimbRig } from "./block-limbs";
 import { drawLens } from "./lens";
-import { quireLeaves, traceQuire, drawQuireBody, codexPages, traceCodex, drawCodexBody, QUIRE_LENS, QUIRE_LENS_R } from "./quire";
 import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
@@ -94,9 +94,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   const eyeLid = new Spring(1, 260, 16);
   const eyeX = new Spring(0, 120, 12), eyeY = new Spring(0, 120, 12);
   let spinAccum = 0;
-  // attached shells (codex / fan): mirrored pair offsets in degrees (outer, inner, centre)
-  const qOff = [0, 1, 2].map(() => new Spring(0, 110, 11));
-  let nextFlick = 0, flickIdx = 0;
+  const limbs = new LimbRig();
   let t = 0, last = performance.now();
   let nextBlink = 2.5, nextGlance = 1.8, nextTilt = 4;
   let pulseT = 0, ticks: number[] = [], flareRing = -1;
@@ -389,11 +387,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.save(); ctx.clip();
       ctx.fillStyle = T.side;
       ctx.fillRect(-s * 1.6, s * 0.02, s * 3.2, s * 1.8);
+      const detail = shapeDetail(p.def.sh, s);
+      if (detail.length) {
+        ctx.beginPath();
+        for (const [x1, y1, x2, y2] of detail) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+        ctx.strokeStyle = T.edge; ctx.lineWidth = 1 * DPR; ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
+      }
       ctx.restore();
       poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.edge; ctx.lineWidth = 1.2 * DPR; ctx.stroke();
       poly(ctx, pts, s * 0.14); ctx.strokeStyle = T.glow + Math.min(1, 0.35 * G) + ")"; ctx.lineWidth = 2.6 * DPR; ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(-s * 0.16, -s * 0.98); ctx.lineTo(0, -s * 1.22); ctx.lineTo(s * 0.16, -s * 0.98);
+      shapeAccent(p.def.sh, s).forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
       ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
       ctx.restore();
     });
@@ -405,8 +409,13 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const bodyR = R * 0.98 * cfg.coreSize;
       if (cfg.shell) drawPlates(bodyR * 1.3, 0.62);
       const squash = 0.5 * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.1 : 0));
+      const pose = limbs.update({
+        state, emote, env: emote ? Math.sin(emoteP * Math.PI) : 0, p: emoteP,
+        flare: flareRing >= 0, attn, gravity: grav,
+      }, dt0, t);
+      ctx.translate(0, -pose.hop * bodyR);
       const bodyPath = new Path2D();
-      traceBlock(bodyPath, cfg.build, bodyR, squash, grav);
+      traceBlock(bodyPath, cfg.build, bodyR, squash, grav, pose);
       const anchor = blockEyeAnchor(cfg.build, bodyR, squash);
       const exOff = eyeX.p * bodyR * 0.08, eyOff = (eyeY.p + emoteGazeY) * bodyR * 0.08;
       const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
@@ -432,13 +441,14 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.shadowBlur = 10 * DPR; ctx.shadowOffsetY = 5 * DPR;
       ctx.fill(bodyPath);
       ctx.restore();
-      drawBlockBody(ctx, cfg.build, bodyR, squash, {
+      const figure = drawBlockBody(ctx, cfg.build, bodyR, squash, {
         accent: T.accent, edge: T.edge, dark: T.coreDisc, DPR,
         bevel: 0.55 + 0.45 * cfg.gradient,
-        shuffle: state === "working" ? 1 : eJoy,
-        t,
         gravity: grav,
-      });
+      }, pose);
+      // eyes and accessories ride the head: hats, glasses and headsets tilt with it
+      ctx.save();
+      applyHeadTransform(ctx, figure);
       for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
@@ -456,6 +466,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           lens: { iris: Math.max(0.05, lensIris), T, G, DPR },
         });
       }
+      ctx.restore();
       for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
       ctx.restore();
       if (!reduced) raf = requestAnimationFrame(frame);
@@ -710,70 +721,28 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       return;
     }
 
-    const attached = isAttachedFamily(cfg.family);
+    // core body — visible in the seams; shape carries the being's build
     const coreR = R * 0.74 * cfg.coreSize;
-    let socketR = coreR * 0.42 * cfg.eyeSize;  // fixed lens housing, part of the core
-    if (attached) {
-      // ---- attached shell: pages on a spine. The emblem's spread (trust
-      // posture + state + emotes) sets how far the pages open; the outer pair
-      // peels for needs_you and annoyed; working riffles page by page. ----
-      const r = R * 0.8 * cfg.coreSize;
-      const codex = cfg.family === "codex";
-      const spread = Math.max(0.1, Math.min(1.5, 0.43 + gSpread.p * 1.64)) * (1 - 0.15 * grav);
-      const offT = [0, 0, 0];
-      if (state === "working") {
-        nextFlick -= dt;
-        if (nextFlick <= 0) { nextFlick = 0.09; qOff[flickIdx].set(6); qOff[flickIdx].p += 4; flickIdx = (flickIdx + 1) % 3; }
-      }
-      if (state === "needs_you") offT[0] += 18;
-      if (eSad > 0) for (let i = 0; i < 3; i++) offT[i] -= 12 * eSad;
-      if (eAnnoy > 0) offT[0] += 30 * eAnnoy;
-      qOff.forEach((sp, i) => {
-        if (!(state === "working" && i === (flickIdx + 2) % 3 && sp.t === 6)) sp.set(offT[i]);
-        sp.step(dt0);
-      });
-      const stiff = emote === "surprise" || emote === "angry";
-      const breath = stiff ? 0 : (1 - 0.5 * grav) * 2 * Math.sin(t * 0.9) * (codex ? 0.5 : 1);
-      const offsets = qOff.map((sp) => sp.p + breath);
-      const leaves = codex ? null : quireLeaves(r, spread, offsets);
-      const pages = codex ? codexPages(r, spread * (1 - 0.35 * grav), offsets) : null;
-      const bodyPath = new Path2D();
-      if (leaves) traceQuire(bodyPath, r, leaves); else traceCodex(bodyPath, r, pages!);
-      ctx.save();
-      ctx.shadowColor = T.glow + Math.min(1, 0.22 * G) + ")";
-      ctx.shadowBlur = 16 * DPR * G;
-      ctx.fillStyle = T.accent; ctx.fill(bodyPath);
-      ctx.shadowColor = "rgba(0,0,0,0.3)";
-      ctx.shadowBlur = 10 * DPR; ctx.shadowOffsetY = 5 * DPR;
-      ctx.fill(bodyPath);
-      ctx.restore();
-      const paint = { accent: T.accent, edge: T.edge, dark: T.coreDisc, DPR, gravity: grav };
-      if (leaves) drawQuireBody(ctx, r, leaves, paint); else drawCodexBody(ctx, r, pages!, paint);
-      // the lens sits low in the spine; the shared eye code below draws at the origin
-      ctx.translate(0, QUIRE_LENS[1] * r);
-      socketR = QUIRE_LENS_R * r * cfg.eyeSize;
-    } else {
-      // core body — visible in the seams; shape carries the being's build
-      traceCore(ctx, cfg.core, coreR);
-      ctx.fillStyle = T.coreDisc; ctx.fill();
-      traceCore(ctx, cfg.core, coreR * 0.98);
-      ctx.strokeStyle = T.glow + Math.min(1, (0.28 + eyeOn * 0.2) * G) + ")";
-      ctx.lineWidth = 1.6 * DPR; ctx.stroke();
-      ctx.save();
-      // clip = core body minus the socket disc (evenodd) → facet lines terminate at the housing
-      traceCore(ctx, cfg.core, coreR);
-      ctx.arc(0, 0, socketR, 0, Math.PI * 2, true);
-      ctx.clip("evenodd");
-      if (traceFacets(ctx, cfg.core, coreR * 0.96)) {
-        ctx.strokeStyle = T.glow + Math.min(1, (0.12 + eyeOn * 0.1) * G) + ")";
-        ctx.lineWidth = 1 * DPR;
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // ---- plates ----
-      drawPlates(R, 1);
+    traceCore(ctx, cfg.core, coreR);
+    ctx.fillStyle = T.coreDisc; ctx.fill();
+    traceCore(ctx, cfg.core, coreR * 0.98);
+    ctx.strokeStyle = T.glow + Math.min(1, (0.28 + eyeOn * 0.2) * G) + ")";
+    ctx.lineWidth = 1.6 * DPR; ctx.stroke();
+    const socketR = coreR * 0.42 * cfg.eyeSize;  // fixed lens housing, part of the core
+    ctx.save();
+    // clip = core body minus the socket disc (evenodd) → facet lines terminate at the housing
+    traceCore(ctx, cfg.core, coreR);
+    ctx.arc(0, 0, socketR, 0, Math.PI * 2, true);
+    ctx.clip("evenodd");
+    if (traceFacets(ctx, cfg.core, coreR * 0.96)) {
+      ctx.strokeStyle = T.glow + Math.min(1, (0.12 + eyeOn * 0.1) * G) + ")";
+      ctx.lineWidth = 1 * DPR;
+      ctx.stroke();
     }
+    ctx.restore();
+
+    // ---- plates ----
+    drawPlates(R, 1);
 
     // ---- the eye: concentric lens, aperture blink ----
     if (eyeOn > 0.01) {
@@ -812,7 +781,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.fillStyle = g2;
       ctx.beginPath(); ctx.arc(0, 0, er * 0.4 * ap * iris, 0, 7); ctx.fill();
       ctx.restore();
-    } else if (state === "away" && !attached) {
+    } else if (state === "away") {
       traceCore(ctx, cfg.core, coreR * 0.5);
       ctx.fillStyle = T.glow + ".08)"; ctx.fill();
     }
@@ -824,7 +793,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
   function renderOnce() {
     for (let i = 0; i < 60; i++) {
-      [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt, ...qOff].forEach((s) => s.step(1 / 60));
+      [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt].forEach((s) => s.step(1 / 60));
       plates.forEach((p) => { p.rad.step(1 / 60); p.scl.step(1 / 60); });
     }
     frame(performance.now());

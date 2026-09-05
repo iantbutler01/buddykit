@@ -8,9 +8,11 @@
  *  - cube: rounded square + inset bevel line
  *  - d12 (dodecahedron): decagon silhouette + central pentagon facets
  *  - gem (table cut): point-up octagon + table facet
+ *  - spine: a tall rounded slab, the binding of a book — pairs with the
+ *    codex and fan shell families but mixes with any
  * All outlines are normalized so the outermost vertex sits at radius 1.
  */
-export type CoreShape = "sphere" | "d20" | "cube" | "d12" | "gem";
+export type CoreShape = "sphere" | "d20" | "cube" | "d12" | "gem" | "spine";
 
 export interface CoreDef {
   /** unit outline points (max vertex radius == 1), or null for a circle */
@@ -87,12 +89,21 @@ function buildGem(): CoreDef {
   return { outline: oct, corner: 0.05, facets };
 }
 
+function buildSpine(): CoreDef {
+  const w = 0.36, h = Math.sqrt(1 - w * w);   // corners on the unit circle → a tall slab, ~2.6:1
+  const sq: [number, number][] = [[-w, -h], [w, -h], [w, h], [-w, h]];
+  // two faint rules down the binding
+  const facets: [number, number, number, number][] = [[-w * 0.45, -h * 0.9, -w * 0.45, h * 0.9], [w * 0.45, -h * 0.9, w * 0.45, h * 0.9]];
+  return { outline: sq, corner: 0.12, facets };
+}
+
 export const CORES: Record<CoreShape, CoreDef> = {
   sphere: { outline: null, corner: 0, facets: [] },
   d20: buildD20(),
   cube: buildCube(),
   d12: buildD12(),
   gem: buildGem(),
+  spine: buildSpine(),
 };
 
 export function coreNames(): CoreShape[] {

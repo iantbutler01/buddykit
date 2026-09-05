@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Spring } from "../src/spring";
-import { FAMILIES, shapePts, isAttachedFamily, type FamilyName } from "../src/families";
+import { FAMILIES, shapePts, shapeDetail } from "../src/families";
 import { STATES } from "../src/states";
 import { getTheme, registerTheme, themeNames } from "../src/themes";
 
@@ -31,7 +31,6 @@ describe("Spring", () => {
 describe("families (grammar invariants)", () => {
   it("every family has plates and every plate resolves a shape", () => {
     for (const [name, defs] of Object.entries(FAMILIES)) {
-      if (isAttachedFamily(name as FamilyName)) continue;
       expect(defs.length, name).toBeGreaterThanOrEqual(3);
       for (const d of defs) {
         const pts = shapePts(d.sh, 1);
@@ -83,9 +82,9 @@ describe("themes", () => {
 });
 
 describe("cores", () => {
-  it("ships five shapes, outlines normalized to unit radius", async () => {
+  it("ships six shapes, outlines normalized to unit radius", async () => {
     const { CORES, coreNames } = await import("../src/cores");
-    expect(coreNames()).toEqual(["sphere", "d20", "cube", "d12", "gem"]);
+    expect(coreNames()).toEqual(["sphere", "d20", "cube", "d12", "gem", "spine"]);
     for (const [name, def] of Object.entries(CORES)) {
       if (!def.outline) continue; // sphere
       const maxR = Math.max(...def.outline.map(([x, y]) => Math.hypot(x, y)));
@@ -178,13 +177,14 @@ describe("blob eyes", () => {
 
 describe("block species", () => {
   it("ships five builds and a stacked slab layout that nests inside the crown/leg anchors", async () => {
-    const { BLOCK_BUILDS, blockSlabs, blockTopY, blockBotY, blockEyeAnchor } = await import("../src/block");
+    const { BLOCK_BUILDS, blockSlabs, blockFigure, blockTopY, blockBotY, blockEyeAnchor } = await import("../src/block");
     expect(BLOCK_BUILDS).toEqual(["stout", "tall", "wide", "mini", "long", "sentinel"]);
     for (const build of BLOCK_BUILDS) {
       const slabs = blockSlabs(build, 100);
-      const kinds = slabs.map((s) => s.kind).sort();
-      expect(kinds.filter((k) => k !== "nub")).toEqual(["crown", "head", "leg", "leg", "torso"]);
-      expect(kinds.filter((k) => k === "nub").length).toBe(build === "sentinel" ? 0 : 2);
+      expect(slabs.map((s) => s.kind).sort()).toEqual(["crown", "head", "torso"]);
+      const fig = blockFigure(build, 100);
+      expect(fig.arms.map((c) => c.kind)).toEqual(["upper", "fore", "hand", "upper", "fore", "hand"]);
+      expect(fig.legs.map((c) => c.kind)).toEqual(["shin", "foot", "shin", "foot"]);
       const top = blockTopY(build, 100), bot = blockBotY(build, 100);
       expect(top).toBeLessThan(0);
       expect(bot).toBeGreaterThan(0);
@@ -218,6 +218,35 @@ describe("block species", () => {
     expect(grave[0].r).toBeLessThan(soft[0].r);
   });
 
+  it("limbs pose from state and emote and mirror at rest", async () => {
+    const { posture, gestures, LimbRig, REST_POSE } = await import("../src/block-limbs");
+    const { blockFigure } = await import("../src/block");
+    const base = { emote: null, env: 0, p: 0, flare: false, attn: 0, gravity: 0 } as const;
+    const rest = posture({ ...base, state: "idle" });
+    expect(rest).toEqual(REST_POSE);
+    const wave = posture({ ...base, state: "needs_you" });
+    expect(wave.armR.sh).toBeGreaterThan(140);        // right arm up to wave
+    expect(wave.armL.sh).toBe(REST_POSE.armL.sh);     // left stays down
+    const joy = posture({ ...base, state: "idle", emote: "joy", env: 1, p: 0.25 });
+    expect(joy.armL.sh).toBeGreaterThan(140); expect(joy.armR.sh).toBeGreaterThan(140);
+    expect(joy.hop).toBeGreaterThan(0.1);
+    expect(gestures({ ...base, state: "working" }).pump).toBe(1);
+    expect(gestures({ ...base, state: "idle" }).pump).toBe(0);
+    // gravity damps the gesture, never inverts it
+    expect(posture({ ...base, state: "needs_you", gravity: 1 }).armR.sh).toBeGreaterThan(90);
+    // a wave through the rig: the right hand ends up above the shoulder
+    const rig = new LimbRig();
+    let pose = REST_POSE;
+    for (let i = 0; i < 240; i++) pose = rig.update({ ...base, state: "needs_you" }, 1 / 60, i / 60);
+    const fig = blockFigure("stout", 100, 0, 0, pose);
+    const hand = fig.arms[5], shoulder = fig.arms[3];
+    expect(hand.py).toBeLessThan(shoulder.py);
+    // the rest figure is mirror-symmetric
+    const restFig = blockFigure("stout", 100);
+    expect(restFig.arms[0].px).toBeCloseTo(-restFig.arms[3].px, 6);
+    expect(restFig.legs[0].px).toBeCloseTo(-restFig.legs[2].px, 6);
+  });
+
   it("config accepts species block with a default build", async () => {
     const { resolveConfig } = await import("../src/config");
     const cfg = resolveConfig({ species: "block" });
@@ -227,45 +256,20 @@ describe("block species", () => {
   });
 });
 
-describe("attached shells (codex, fan)", () => {
-  it("the fan is a centred peacock tail: five leaves mirror-symmetric about the spine", async () => {
-    const { quireLeaves, quireTopY, QUIRE_SPINE, QUIRE_ORDER } = await import("../src/quire");
-    const leaves = quireLeaves(100, 1, [0, 0, 0]);
-    expect(leaves).toHaveLength(5);
-    leaves.forEach((leaf, i) => expect(leaf.angle).toBeCloseTo(-leaves[4 - i].angle, 9));
-    expect(leaves[2].angle).toBe(0);
-    expect(quireTopY(100, leaves)).toBeLessThan(QUIRE_SPINE.top * 100);
-    expect([...QUIRE_ORDER].sort()).toEqual([0, 1, 2, 3, 4]);
-  });
-
-  it("a positive outer-pair offset opens both outer leaves outward, symmetrically", async () => {
-    const { quireLeaves } = await import("../src/quire");
-    const rest = quireLeaves(100, 1, [0, 0, 0]), peeled = quireLeaves(100, 1, [18, 0, 0]);
-    expect(peeled[0].angle).toBeLessThan(rest[0].angle);
-    expect(peeled[4].angle).toBeGreaterThan(rest[4].angle);
-    expect(peeled[0].angle).toBeCloseTo(-peeled[4].angle, 9);
-  });
-
-  it("codex pages stay attached to the spine: the inner edge is flush for its full height", async () => {
-    const { codexPages, codexTopY, QUIRE_SPINE } = await import("../src/quire");
-    const pages = codexPages(100, 1, [0, 0, 0]);
-    expect(pages).toHaveLength(6);
-    const sx = QUIRE_SPINE.w * 100 / 2;
-    for (const pg of pages) {
-      expect(pg.pts[0][0]).toBeCloseTo(pg.side * sx, 9);   // bottom inner corner on the spine edge
-      expect(pg.pts[4][0]).toBeCloseTo(pg.side * sx, 9);   // top inner corner on the spine edge
-      const twin = pages.find((q) => q.side === -pg.side && q.index === pg.index)!;
-      pg.pts.forEach((pt, i) => { expect(pt[0]).toBeCloseTo(-twin.pts[i][0], 9); expect(pt[1]).toBeCloseTo(twin.pts[i][1], 9); });
-    }
-    expect(codexTopY(100, pages)).toBeLessThan(QUIRE_SPINE.top * 100);
-  });
-
-  it("codex and fan are attached emblem shells with no orbiting plates", async () => {
-    const { FAMILIES, ATTACHED_FAMILIES, isAttachedFamily } = await import("../src/families");
+describe("codex and fan shells", () => {
+  it("are plate families over a spine core, mixable like the rest", async () => {
+    const { CORES, coreRadiusAt } = await import("../src/cores");
     const { resolveConfig } = await import("../src/config");
-    expect(ATTACHED_FAMILIES).toEqual(["codex", "fan"]);
-    for (const f of ATTACHED_FAMILIES) { expect(isAttachedFamily(f)).toBe(true); expect(FAMILIES[f]).toEqual([]); }
-    expect(isAttachedFamily("tetra")).toBe(false);
-    expect(resolveConfig({ family: "codex" }).family).toBe("codex");
+    expect(CORES.spine.outline!.length).toBe(4);
+    expect(coreRadiusAt("spine", 0)).toBeLessThan(coreRadiusAt("spine", Math.PI / 2));   // taller than wide
+    expect(FAMILIES.codex.every((d) => d.sh === "page")).toBe(true);
+    expect(FAMILIES.fan.every((d) => d.sh === "leaf")).toBe(true);
+    // mirror symmetry: every codex page on the left has a twin on the right
+    const left = FAMILIES.codex.filter((d) => Math.cos(d.a * Math.PI / 180) < 0).map((d) => [180 - d.a, d.d, d.s].join());
+    const right = FAMILIES.codex.filter((d) => Math.cos(d.a * Math.PI / 180) > 0).map((d) => [((d.a % 360) + 360) % 360 - 0, d.d, d.s].join());
+    expect(left.map((k) => k.replace(/^-?\d+/, (m) => String(((Number(m) % 360) + 360) % 360))).sort()).toEqual(right.sort());
+    expect(shapeDetail("page", 10).length).toBeGreaterThan(0);
+    expect(shapeDetail("kite", 10)).toEqual([]);
+    expect(resolveConfig({ core: "spine", family: "fan" }).core).toBe("spine");
   });
 });

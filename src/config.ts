@@ -24,7 +24,7 @@ export interface BuddyConfig {
    *  polyhedron (cfg.core picks the shape); eyes and motion harden with it */
   hardness: number;
   /** shell family — emblem, and the blob's ring when shell is on (default "tetra").
-   *  "codex" and "fan" are attached shells: pages on a spine, one low lens. */
+   *  "codex" (open book) and "fan" (peacock tail) pair with the spine core but mix with any. */
   family: FamilyName;
   /** body form — blob species (default "round") */
   body: BlobBody;

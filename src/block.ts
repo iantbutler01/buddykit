@@ -1,13 +1,15 @@
 /**
- * The block species — a chunky stacked-slab build: crown, head, torso, legs
- * and two side nubs, every slab a rounded rectangle with a thick theme-edge
+ * The block species — a chunky stacked-slab figure: crown, head and torso
+ * as a stack, jointed arms and legs hung off the torso (block-limbs.ts owns
+ * the poses). Every chunk is a rounded rectangle with a hairline theme-edge
  * outline, a shade strip down one side and a highlight along the top so it
- * reads as a solid chunk rather than a flat sticker. Shares buddykit's
- * palette doctrine (accent body, theme-dark features) and the rig's motion
- * grammar; a block squashes a little, never wobbles.
+ * reads as a solid piece rather than a flat sticker. Shares buddykit's
+ * palette doctrine (accent body, theme-dark features); a block squashes a
+ * little, never wobbles, and says the rest with its limbs.
  */
 import type { PathTarget } from "./blob";
 import { drawLens, type LensParams } from "./lens";
+import { REST_POSE, type BlockPose, type ArmPose, type LegPose } from "./block-limbs";
 
 export type BlockBuild = "stout" | "tall" | "wide" | "mini" | "long" | "sentinel";
 export const BLOCK_BUILDS: BlockBuild[] = ["stout", "tall", "wide", "mini", "long", "sentinel"];
@@ -17,7 +19,9 @@ interface BuildDef {
   crownW: number; crownH: number;
   headW: number; headH: number;
   torsoW: number; torsoH: number;
+  /** leg (shin) width and length, gap between the legs */
   legW: number; legH: number; legGap: number;
+  /** arm width and upper-arm length; the forearm is 0.85 of it, the hand a cube */
   nubW: number; nubH: number;
   /** eye centre spacing (full) and drop below the head top, in head units */
   eyeSpread: number; eyeDrop: number;
@@ -29,67 +33,152 @@ const BUILDS: Record<BlockBuild, BuildDef> = {
   wide:  { crownW: 1.9,  crownH: 0.3,  headW: 1.8,  headH: 0.74, torsoW: 1.5, torsoH: 0.56, legW: 0.5,  legH: 0.26, legGap: 0.3,  nubW: 0.22, nubH: 0.3,  eyeSpread: 0.78, eyeDrop: 0.5 },
   mini:  { crownW: 1.5,  crownH: 0.28, headW: 1.4,  headH: 1.0,  torsoW: 0.96, torsoH: 0.4, legW: 0.34, legH: 0.22, legGap: 0.14, nubW: 0.16, nubH: 0.26, eyeSpread: 0.6,  eyeDrop: 0.52 },
   long:  { crownW: 1.3,  crownH: 0.26, headW: 1.16, headH: 0.7,  torsoW: 1.04, torsoH: 1.0, legW: 0.34, legH: 0.42, legGap: 0.14, nubW: 0.18, nubH: 0.5,  eyeSpread: 0.54, eyeDrop: 0.5 },
-  // the monolith: no nubs, a narrow crown, a long undivided torso — built for a visor or a lens
-  sentinel: { crownW: 1.0, crownH: 0.2, headW: 1.08, headH: 0.98, torsoW: 1.0, torsoH: 1.12, legW: 0.4, legH: 0.3, legGap: 0.12, nubW: 0, nubH: 0, eyeSpread: 0.5, eyeDrop: 0.5 },
+  // the monolith: narrow arms, a narrow crown, a long undivided torso — built for a visor or a lens
+  sentinel: { crownW: 1.0, crownH: 0.2, headW: 1.08, headH: 0.98, torsoW: 1.0, torsoH: 1.12, legW: 0.4, legH: 0.3, legGap: 0.12, nubW: 0.17, nubH: 0.5, eyeSpread: 0.5, eyeDrop: 0.5 },
 };
 
 export interface Slab {
   x: number; y: number; w: number; h: number; r: number;
-  /** draw order: nubs behind the torso, crown over the head */
-  kind: "crown" | "head" | "torso" | "leg" | "nub";
+  kind: "crown" | "head" | "torso";
 }
 
-/** The slab layout for a build at body radius r. squash: +stretch / -squash,
- *  applied as a whole-figure scale so the stack never separates. The figure
- *  is centred so that y = 0 sits mid-torso; the eyes ride in the head. */
+/** One rigid chunk of a limb, placed by a pivot and an angle: drawn hanging
+ *  down from the pivot in local space, then rotated. */
+export interface Chunk {
+  px: number; py: number;
+  /** radians, clockwise on screen */
+  a: number;
+  w: number; len: number; r: number;
+  kind: "upper" | "fore" | "hand" | "shin" | "foot";
+}
+
+export interface Figure {
+  /** crown, head, torso — the stack */
+  slabs: Slab[];
+  /** legs, drawn behind the torso */
+  legs: Chunk[];
+  /** arms, drawn in front of the torso so hands can cross it */
+  arms: Chunk[];
+  /** head transform: pivot (neck) and offset in body space, applied to head, crown, eyes */
+  neck: { x: number; y: number; tilt: number; dx: number; dy: number };
+  /** whole-figure lift (hop), body space */
+  hop: number;
+}
+
+function squashK(squash: number) {
+  return { kx: 1 + squash * 0.35, ky: 1 - squash * 0.7 };
+}
+
+/** The stack (crown, head, torso) for a build at body radius r. squash:
+ *  +stretch / -squash as a whole-figure scale so the stack never separates.
+ *  y = 0 sits mid-torso; the eyes ride in the head. */
 export function blockSlabs(build: BlockBuild, r: number, squash = 0, gravity = 0): Slab[] {
   const d = BUILDS[build];
-  const kx = 1 + squash * 0.35, ky = 1 - squash * 0.7;
+  const { kx, ky } = squashK(squash);
   const totalH = d.crownH + d.headH + d.torsoH + d.legH;
   const top = -totalH * 0.55;   // visual centre slightly below the head
-  const corner = 0.07 * (1 - gravity) + 0.012;   // gravity squares the corners
-  const slab = (kind: Slab["kind"], cx: number, y: number, w: number, h: number, rr = corner): Slab => ({
-    kind,
-    x: (cx - w / 2) * r * kx,
-    y: y * r * ky,
-    w: w * r * kx,
-    h: h * r * ky,
-    r: rr * r,
+  const corner = blockCorner(gravity);
+  const slab = (kind: Slab["kind"], y: number, w: number, h: number, rr: number): Slab => ({
+    kind, x: (-w / 2) * r * kx, y: y * r * ky, w: w * r * kx, h: h * r * ky, r: rr * r,
   });
-  const crownY = top, headY = crownY + d.crownH, torsoY = headY + d.headH, legY = torsoY + d.torsoH;
-  const nubY = torsoY + d.torsoH * 0.12;
-  const legOff = d.legGap / 2 + d.legW / 2;
-  const out: Slab[] = [];
-  if (d.nubW > 0) {
-    out.push(slab("nub", -(d.torsoW / 2 + d.nubW / 2 - 0.02), nubY, d.nubW, d.nubH, corner * 0.7));
-    out.push(slab("nub", d.torsoW / 2 + d.nubW / 2 - 0.02, nubY, d.nubW, d.nubH, corner * 0.7));
-  }
-  out.push(
-    slab("leg", -legOff, legY, d.legW, d.legH, corner * 0.7),
-    slab("leg", legOff, legY, d.legW, d.legH, corner * 0.7),
-    slab("torso", 0, torsoY, d.torsoW, d.torsoH),
-    slab("head", 0, headY, d.headW, d.headH, corner * 1.3),
-    slab("crown", 0, crownY, d.crownW, d.crownH, corner * 0.85),
-  );
-  return out;
+  const crownY = top, headY = crownY + d.crownH, torsoY = headY + d.headH;
+  return [
+    slab("torso", torsoY, d.torsoW, d.torsoH, corner),
+    slab("head", headY, d.headW, d.headH, corner * 1.3),
+    slab("crown", crownY, d.crownW, d.crownH, corner * 0.85),
+  ];
+}
+
+/** gravity squares the corners */
+function blockCorner(gravity: number) {
+  return 0.07 * (1 - gravity) + 0.012;
+}
+
+const DEG = Math.PI / 180;
+
+/** The whole posed figure: the stack plus every limb chunk in draw order. */
+export function blockFigure(build: BlockBuild, r: number, squash = 0, gravity = 0, pose: BlockPose = REST_POSE): Figure {
+  const d = BUILDS[build];
+  const { kx, ky } = squashK(squash);
+  const corner = blockCorner(gravity);
+  const slabs = blockSlabs(build, r, squash, gravity);
+  const torso = slabs[0], head = slabs[1];
+  const armW = d.nubW * 1.3 * r * kx, upper = d.nubH * 0.8 * r * ky, fore = upper * 0.72, hand = armW * 0.95;
+  const legW = d.legW * r * kx, shin = d.legH * 1.1 * r * ky, footH = legW * 0.5, footW = legW * 1.35;
+  const arms: Chunk[] = [], legs: Chunk[] = [];
+  const chunk = (kind: Chunk["kind"], px: number, py: number, a: number, w: number, len: number, rr: number): Chunk =>
+    ({ kind, px, py, a, w, len, r: rr * r });
+  const arm = (side: -1 | 1, ap: ArmPose) => {
+    // the shoulder sits just outside the torso so the arm hangs clear of it
+    const sx = side > 0 ? torso.x + torso.w + armW * 0.42 : torso.x - armW * 0.42;
+    const sy = torso.y + torso.h * 0.1;
+    // canvas rotation is clockwise, so a hanging chunk rotated by +a swings
+    // toward -x; outward for the right side is therefore a negative angle
+    const a1 = -side * ap.sh * DEG, a2 = -side * (ap.sh + ap.el) * DEG;
+    const ex = sx - Math.sin(a1) * upper, ey = sy + Math.cos(a1) * upper;   // elbow
+    const hx = ex - Math.sin(a2) * fore, hy = ey + Math.cos(a2) * fore;      // wrist
+    arms.push(chunk("upper", sx, sy, a1, armW, upper, corner * 0.7));
+    arms.push(chunk("fore", ex, ey, a2, armW * 0.92, fore, corner * 0.7));
+    arms.push(chunk("hand", hx, hy, a2, hand, hand, corner * 0.9));
+  };
+  const leg = (side: -1 | 1, lp: LegPose) => {
+    const hx = side * (d.legGap / 2 + d.legW / 2) * r * kx;
+    const hy = torso.y + torso.h - legW * 0.2 - lp.lift * r;
+    const a = -side * lp.kick * DEG;
+    const fx = hx - Math.sin(a) * shin, fy = hy + Math.cos(a) * shin;
+    legs.push(chunk("shin", hx, hy, a, legW, shin, corner * 0.7));
+    legs.push(chunk("foot", fx, fy, a, footW, footH, corner * 0.6));
+  };
+  arm(-1, pose.armL); arm(1, pose.armR);
+  leg(-1, pose.legL); leg(1, pose.legR);
+  return {
+    slabs, legs, arms,
+    neck: { x: 0, y: head.y + head.h, tilt: pose.head.tilt, dx: pose.head.dx * r, dy: pose.head.dy * r },
+    hop: pose.hop * r,
+  };
 }
 
 function rect(ctx: PathTarget, s: Slab) {
   ctx.roundRect(s.x, s.y, s.w, s.h, s.r);
 }
 
-/** The whole-figure silhouette (union of slabs) — glow, shadow and cloth clips. */
-export function traceBlock(ctx: PathTarget, build: BlockBuild, r: number, squash = 0, gravity = 0) {
-  if ("beginPath" in ctx) ctx.beginPath();
-  for (const s of blockSlabs(build, r, squash, gravity)) rect(ctx, s);
+/** A chunk's four corners in body space (the silhouette skips its rounded corners). */
+function chunkCorners(c: Chunk): [number, number][] {
+  const cs = Math.cos(c.a), sn = Math.sin(c.a);
+  const pt = (lx: number, ly: number): [number, number] => [c.px + lx * cs - ly * sn, c.py + lx * sn + ly * cs];
+  const hw = c.w / 2, top = -c.w * 0.1;
+  return [pt(-hw, top), pt(hw, top), pt(hw, c.len), pt(-hw, c.len)];
 }
 
-/** Crown top y (negative) and leg bottom y (positive) — accessory anchors. */
+function tracePoly(ctx: PathTarget, pts: [number, number][]) {
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+}
+
+/** Apply the head transform (neck pivot, tilt, offset) to the context. */
+export function applyHeadTransform(ctx: CanvasRenderingContext2D, f: Figure) {
+  ctx.translate(f.neck.dx, f.neck.dy);
+  ctx.translate(f.neck.x, f.neck.y);
+  ctx.rotate(f.neck.tilt);
+  ctx.translate(-f.neck.x, -f.neck.y);
+}
+
+/** The whole-figure silhouette (stack and limbs) — glow, shadow and cloth clips. */
+export function traceBlock(ctx: PathTarget, build: BlockBuild, r: number, squash = 0, gravity = 0, pose: BlockPose = REST_POSE) {
+  if ("beginPath" in ctx) ctx.beginPath();
+  const f = blockFigure(build, r, squash, gravity, pose);
+  for (const c of [...f.legs, ...f.arms]) tracePoly(ctx, chunkCorners(c));
+  rect(ctx, f.slabs[0]);
+  for (const s of f.slabs.slice(1)) ctx.roundRect(s.x + f.neck.dx, s.y + f.neck.dy, s.w, s.h, s.r);
+}
+
+/** Crown top y (negative) and foot bottom y (positive) at rest — accessory anchors. */
 export function blockTopY(build: BlockBuild, r: number, squash = 0): number {
   return Math.min(...blockSlabs(build, r, squash).map((s) => s.y));
 }
 export function blockBotY(build: BlockBuild, r: number, squash = 0): number {
-  return Math.max(...blockSlabs(build, r, squash).map((s) => s.y + s.h));
+  return Math.max(...blockFigure(build, r, squash).legs.map((c) => c.py + c.len));
 }
 
 /** Eye centres for a build: [±cx, cy] in body space (squash applied). */
@@ -112,51 +201,61 @@ export interface BlockPaint {
   DPR: number;
   /** 0..1 side-shade / top-light strength */
   bevel: number;
-  /** legs shuffle phase (0 = still) */
-  shuffle: number;
-  t: number;
   /** 0..1 — squares corners, kills the top highlight, deepens the shade */
   gravity: number;
 }
 
-/** Paint every slab: fill, shade strip, top highlight, outline. Nubs and legs
- *  go first so the torso overlaps them; the crown lands over the head. */
-export function drawBlockBody(ctx: CanvasRenderingContext2D, build: BlockBuild, r: number, squash: number, p: BlockPaint) {
-  const slabs = blockSlabs(build, r, squash, p.gravity);
-  const lw = Math.max(1 * p.DPR, r * 0.03);   // hairline outline (Ian: the thick ones were not great)
-  let legIdx = 0;
-  for (const s of slabs) {
-    const dark = s.kind === "crown";
-    let dy = 0;
-    if (s.kind === "leg" && p.shuffle > 0) {
-      // working shuffle: legs alternate a pixel-step lift
-      dy = -Math.max(0, Math.sin(p.t * 7 + legIdx * Math.PI)) * r * 0.05 * p.shuffle;
-      legIdx++;
-    }
+/** Fill, shade strip, top highlight and hairline outline for one rounded
+ *  rectangle in the current transform — the two-tone that makes a flat
+ *  rectangle read as a chunk. */
+function paintChunk(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, rr: number, dark: boolean, p: BlockPaint, lw: number) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, rr);
+  ctx.fillStyle = dark ? p.dark : p.accent;
+  ctx.fill();
+  if (p.bevel > 0) {
     ctx.save();
-    ctx.translate(0, dy);
-    ctx.beginPath(); rect(ctx, s);
-    ctx.fillStyle = dark ? p.dark : p.accent;
-    ctx.fill();
-    if (p.bevel > 0) {
-      ctx.save();
-      ctx.clip();
-      // shade strip down the right, highlight along the top — the two-tone
-      // that makes a flat rectangle read as a chunk
-      const strip = Math.max(2, s.w * 0.14);
-      ctx.fillStyle = `rgba(0,0,0,${(dark ? 0.22 : 0.16) * p.bevel * (1 + 0.8 * p.gravity)})`;
-      ctx.fillRect(s.x + s.w - strip, s.y, strip, s.h);
-      ctx.fillStyle = `rgba(255,255,255,${(dark ? 0.12 : 0.22) * p.bevel * (1 - p.gravity)})`;
-      ctx.fillRect(s.x, s.y, s.w, Math.max(2, s.h * 0.12));
-      ctx.restore();
-    }
-    ctx.beginPath(); rect(ctx, s);
-    ctx.strokeStyle = p.edge;
-    ctx.lineWidth = lw;
-    ctx.lineJoin = "round";
-    ctx.stroke();
+    ctx.clip();
+    const strip = Math.max(2, w * 0.14);
+    ctx.fillStyle = `rgba(0,0,0,${(dark ? 0.22 : 0.16) * p.bevel * (1 + 0.8 * p.gravity)})`;
+    ctx.fillRect(x + w - strip, y, strip, h);
+    ctx.fillStyle = `rgba(255,255,255,${(dark ? 0.12 : 0.22) * p.bevel * (1 - p.gravity)})`;
+    ctx.fillRect(x, y, w, Math.max(2, h * 0.12));
     ctx.restore();
   }
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, rr);
+  ctx.strokeStyle = p.edge;
+  ctx.lineWidth = lw;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+}
+
+function paintLimb(ctx: CanvasRenderingContext2D, chunks: Chunk[], p: BlockPaint, lw: number) {
+  for (const c of chunks) {
+    ctx.save();
+    ctx.translate(c.px, c.py);
+    ctx.rotate(c.a);
+    // hands and feet are theme-dark like every feature; the pivot overlap
+    // (top = -0.1w) hides the joint seam under the parent chunk
+    paintChunk(ctx, -c.w / 2, -c.w * 0.1, c.w, c.len + c.w * 0.1, c.r, c.kind === "hand" || c.kind === "foot", p, lw);
+    ctx.restore();
+  }
+}
+
+/** Paint the posed figure: legs, torso, arms, then the head and crown under
+ *  the head transform. Returns the figure so the caller can place eyes and
+ *  accessories with the same transform. */
+export function drawBlockBody(ctx: CanvasRenderingContext2D, build: BlockBuild, r: number, squash: number, p: BlockPaint, pose: BlockPose = REST_POSE): Figure {
+  const f = blockFigure(build, r, squash, p.gravity, pose);
+  const lw = Math.max(1 * p.DPR, r * 0.03);
+  paintLimb(ctx, f.legs, p, lw);
+  const [torso, ...headStack] = f.slabs;
+  paintChunk(ctx, torso.x, torso.y, torso.w, torso.h, torso.r, false, p, lw);
+  paintLimb(ctx, f.arms, p, lw);
+  ctx.save();
+  applyHeadTransform(ctx, f);
+  for (const s of headStack) paintChunk(ctx, s.x, s.y, s.w, s.h, s.r, s.kind === "crown", p, lw);
+  ctx.restore();
+  return f;
 }
 
 export type BlockEyeStyle = "googly" | "slit" | "glint" | "dot" | "arc" | "ring" | "sadarc" | "lens";

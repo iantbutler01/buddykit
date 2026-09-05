@@ -18,6 +18,7 @@ const buddy = mountBuddy(canvasEl, {
   body: "round", eyes: "googly", theme: "ember",   // eyes also: slit | glint | dot | arc | ring | lens (one optic)
   build: "stout",         // block species: stout | tall | wide | mini | long | sentinel
   family: "tetra",        // emblem shell: tetra | octa | ring | petal | shard | prism | codex (open book) | fan (peacock tail)
+  core: "sphere",         // emblem core: sphere | d20 | cube | d12 | gem | spine (a book's binding)
   accessories: ["ears", "bowtie"],
   accessoryColors: { bowtie: "#d6453d" },   // per-accessory color overrides
   gravity: 0,             // 0 playful → 1 grave: hard corners, muted light, narrow eyes, slow motion
