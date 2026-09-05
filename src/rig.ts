@@ -15,6 +15,7 @@ import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
 import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
 import { drawLens } from "./lens";
+import { quireLeaves, traceQuire, quireTopY, drawQuireBody, QUIRE_LENS, QUIRE_LENS_R, QUIRE_SPINE } from "./quire";
 import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
@@ -93,6 +94,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   const eyeLid = new Spring(1, 260, 16);
   const eyeX = new Spring(0, 120, 12), eyeY = new Spring(0, 120, 12);
   let spinAccum = 0;
+  // quire: fan spread (1 = rest) and per-leaf angle offsets in degrees
+  const qSpread = new Spring(1, 70, 10);
+  const qOff = [0, 1, 2, 3, 4].map(() => new Spring(0, 110, 11));
+  let nextFlick = 0, flickIdx = 0;
   let t = 0, last = performance.now();
   let nextBlink = 2.5, nextGlance = 1.8, nextTilt = 4;
   let pulseT = 0, ticks: number[] = [], flareRing = -1;
@@ -393,6 +398,79 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
       ctx.restore();
     });
+
+    if (cfg.species === "quire") {
+      // ---- quire species: five opaque leaves fanned to one side of a dark
+      // spine, one lens low in the spine. No squash — leaves are rigid; the
+      // body speaks through spread (how the leaves gather) and per-leaf
+      // offsets (one leaf held apart). Shared vision, Claude × Codex Astra. ----
+      const r = R * 0.8 * cfg.coreSize;
+      const hand: 1 | -1 = cfg.hand === "left" ? -1 : cfg.hand === "right" ? 1 : (cfg.seed % 2 === 0 ? 1 : -1);
+      // spread target by state, then emotes on top
+      let spreadT = state === "listening" ? 0.7 : state === "away" ? 0.1 : 1;
+      let breathe = (1 - 0.5 * grav) * 2;
+      if (emote === "joy") spreadT = emoteP < 0.3 ? 1.35 : 1;
+      else if (emote === "surprise") { spreadT = emoteT < 0.12 ? 1.3 : 1; breathe = 0; }
+      else if (emote === "sad") spreadT = 1 - 0.2 * eSad;
+      else if (emote === "angry") { spreadT = 1 - 0.45 * eAngry; breathe = 0; }
+      else if (emote === "tired") spreadT = 1 - 0.5 * emoteP;
+      if (flareRing >= 0) spreadT = 1.5;
+      qSpread.set(spreadT);
+      qSpread.step(dt0);
+      // per-leaf offsets: working riffle, needs_you raised leaf, sad droop, annoyed flip
+      const offT = [0, 0, 0, 0, 0];
+      if (state === "working") {
+        nextFlick -= dt;
+        if (nextFlick <= 0) { nextFlick = 0.09; qOff[flickIdx].set(6); qOff[flickIdx].p += 4; flickIdx = (flickIdx + 1) % 5; }
+      }
+      if (state === "needs_you") offT[0] -= 18;
+      if (eSad > 0) for (let i = 0; i < 5; i++) offT[i] += 12 * eSad;
+      if (eAnnoy > 0) offT[0] -= 30 * eAnnoy;
+      qOff.forEach((sp, i) => {
+        if (!(state === "working" && i === (flickIdx + 4) % 5 && sp.t === 6)) sp.set(offT[i]);
+        sp.step(dt0);
+      });
+      const breath = breathe * Math.sin(t * 0.9);
+      const leaves = quireLeaves(r, qSpread.p, qOff.map((s) => s.p + breath), hand);
+      // listening squares the body: the curious tilt returns to level
+      if (state === "listening") bodyTilt.set(spinAccum);
+      const bodyPath = new Path2D();
+      traceQuire(bodyPath, r, leaves, hand);
+      const lensX = QUIRE_LENS[0] * r * hand, lensY = QUIRE_LENS[1] * r;
+      const lensR = QUIRE_LENS_R * r * cfg.eyeSize;
+      const geom = {
+        topY: quireTopY(r, leaves),
+        botY: QUIRE_SPINE.bottom * r,
+        bodyR: r * 1.2, t, dark: T.coreDisc, accent: T.accent,
+        bodyPath, colors: cfg.accessoryColors,
+        eyeCX: 0, eyeCY: lensY, eyeOX: lensX, eyeOY: 0,
+        ringR: lensR * 1.25,
+      };
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
+      ctx.save();
+      ctx.shadowColor = T.glow + Math.min(1, 0.22 * G) + ")";
+      ctx.shadowBlur = 16 * DPR * G;
+      ctx.fillStyle = T.accent; ctx.fill(bodyPath);
+      ctx.shadowColor = "rgba(0,0,0,0.3)";
+      ctx.shadowBlur = 10 * DPR; ctx.shadowOffsetY = 5 * DPR;
+      ctx.fill(bodyPath);
+      ctx.restore();
+      drawQuireBody(ctx, r, leaves, hand, { accent: T.accent, edge: T.edge, dark: T.coreDisc, DPR, gravity: grav });
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
+      // the lens: aperture from the lid spring; iris from attention and mood;
+      // listening opens it a little wider
+      const ap = Math.max(0.05, eyeLid.p * emoteLidMul);
+      const iris = Math.max(0.05, (1 + attn * 0.22) * (state === "listening" ? 1.15 : 1)
+        * (1 + eJoy * 0.18 * Math.sin(t * 16)) * (1 - 0.45 * eSad - 0.35 * eTired - 0.45 * eAngry));
+      ctx.save();
+      ctx.translate(lensX + eyeX.p * r * 0.05, lensY + (eyeY.p + emoteGazeY) * r * 0.05);
+      drawLens(ctx, { er: lensR, ap: state === "away" ? 0.05 : ap, iris, T, G, DPR });
+      ctx.restore();
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
+      ctx.restore();
+      if (!reduced) raf = requestAnimationFrame(frame);
+      return;
+    }
 
     if (cfg.species === "block") {
       // ---- block species: a stacked-slab chunk. Same channels as the blob
@@ -778,7 +856,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
   function renderOnce() {
     for (let i = 0; i < 60; i++) {
-      [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt].forEach((s) => s.step(1 / 60));
+      [gSpread, eyeScale, eyeLid, eyeX, eyeY, bodyY, bodyTilt, qSpread, ...qOff].forEach((s) => s.step(1 / 60));
       plates.forEach((p) => { p.rad.step(1 / 60); p.scl.step(1 / 60); });
     }
     frame(performance.now());

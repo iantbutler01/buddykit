@@ -225,3 +225,29 @@ describe("block species", () => {
     expect(resolveConfig({ build: "wide" }).build).toBe("wide");
   });
 });
+
+describe("quire species", () => {
+  it("has five leaves whose angles mirror with the hand and a crown above the spine", async () => {
+    const { quireLeaves, quireTopY, QUIRE_SPINE, QUIRE_ORDER } = await import("../src/quire");
+    const right = quireLeaves(100, 1, [0, 0, 0, 0, 0], 1), left = quireLeaves(100, 1, [0, 0, 0, 0, 0], -1);
+    expect(right).toHaveLength(5);
+    right.forEach((leaf, i) => expect(leaf.angle).toBeCloseTo(-left[i].angle, 9));
+    expect(quireTopY(100, right)).toBeLessThan(QUIRE_SPINE.top * 100);
+    expect([...QUIRE_ORDER].sort()).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("needs_you lifts the outer leaf: a -18° offset on leaf 0 raises the crown", async () => {
+    const { quireLeaves, quireTopY } = await import("../src/quire");
+    const rest = quireLeaves(100, 1, [0, 0, 0, 0, 0], 1);
+    const raised = quireLeaves(100, 1, [-18, 0, 0, 0, 0], 1);
+    expect(quireTopY(100, raised)).toBeLessThanOrEqual(quireTopY(100, rest));
+    // and the leaf swings outward, away from the fan
+    expect(Math.abs(raised[0].angle)).toBeGreaterThan(Math.abs(rest[0].angle));
+  });
+
+  it("config accepts species quire and hand", async () => {
+    const { resolveConfig } = await import("../src/config");
+    expect(resolveConfig({ species: "quire" }).hand).toBe("auto");
+    expect(resolveConfig({ species: "quire", hand: "left" }).hand).toBe("left");
+  });
+});

@@ -3,6 +3,7 @@ import type { CoreShape } from "./cores";
 import type { ThemeInput } from "./themes";
 import type { BlobBody, BlobEyes } from "./blob";
 import type { BlockBuild } from "./block";
+import type { QuireHand } from "./quire";
 import { accessoryRank, type AccessoryName } from "./accessories";
 
 /**
@@ -17,7 +18,7 @@ export interface BuddyConfig {
   /** visual species: geometric emblem, two-eyed blob, or stacked-slab block
    *  (default "emblem"). Everything else — hardness, shell ring, accessories —
    *  mixes freely. */
-  species: "emblem" | "blob" | "block";
+  species: "emblem" | "blob" | "block" | "quire";
   /** orbit the emblem's plate shell around the blob body (default false) */
   shell: boolean;
   /** blob body hardness 0..1 — 0 soft organic blob, 1 rigid faceted core
@@ -29,6 +30,8 @@ export interface BuddyConfig {
   body: BlobBody;
   /** slab proportions — block species (default "stout") */
   build: BlockBuild;
+  /** which side the fan falls to — quire species ("auto" = from the seed) */
+  hand: QuireHand;
   /** eye style — blob species (default "googly") */
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
@@ -99,6 +102,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   family: "tetra",
   body: "round",
   build: "stout",
+  hand: "auto",
   eyes: "googly",
   core: "sphere",
   accessories: [],
