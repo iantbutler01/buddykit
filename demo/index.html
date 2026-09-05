@@ -188,6 +188,10 @@
         <button class="th" data-v="ember" aria-pressed="true">ember</button>
         <button class="th" data-v="sumi">sumi</button>
         <button class="th" data-v="signal">signal</button>
+        <button class="th" data-v="slate">slate</button>
+        <button class="th" data-v="indigo">indigo</button>
+        <button class="th" data-v="graphite">graphite</button>
+        <button class="th" data-v="verdigris">verdigris</button>
         <input type="color" id="accent" value="#7c5cff" title="one-color theme — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
         <button id="palette-toggle" title="per-element colors">🎨 elements</button>
       </div>
@@ -401,12 +405,12 @@
     { name: "Sprocket", cls: "Block · tall visor, headset",          cfg: { species: "block", build: "tall", eyes: "slit", theme: "#4fb8a8", accessories: ["headset"], gradient: 0.5, seed: 27 } },
     { name: "Moss",     cls: "Block · wide, ears, hollow eyes",      cfg: { species: "block", build: "wide", eyes: "ring", theme: "#7fb069", accessories: ["ears"], gradient: 0.3, seed: 88 } },
     { name: "Nib",      cls: "Block · mini, dot eyes, beanie",       cfg: { species: "block", build: "mini", eyes: "dot", theme: "#8a7cf0", accessories: ["beanie", "scarf"], seed: 9 } },
-    { name: "Warden",   cls: "Sentinel · one lens, full gravity",    cfg: { species: "block", build: "sentinel", eyes: "lens", theme: "sumi", gravity: 1, gradient: 0.6, seed: 4 } },
-    { name: "Basalt",   cls: "Sentinel · visor, shell ring, grave",  cfg: { species: "block", build: "sentinel", eyes: "slit", shell: true, family: "petal", theme: "#5b5763", gravity: 0.85, gradient: 0.5, seed: 19 } },
-    { name: "Oracle",   cls: "Construct · d20 core, one lens",        cfg: { species: "blob", body: "round", eyes: "lens", hardness: 1, core: "d20", shell: true, family: "tetra", theme: "sumi", gravity: 0.9, gradient: 0.4, seed: 77 } },
+    { name: "Warden",   cls: "Sentinel · one lens, full gravity",    cfg: { species: "block", build: "sentinel", eyes: "lens", theme: "slate", gravity: 1, gradient: 0.6, seed: 4 } },
+    { name: "Basalt",   cls: "Sentinel · visor, shell ring, grave",  cfg: { species: "block", build: "sentinel", eyes: "slit", shell: true, family: "petal", theme: "graphite", gravity: 0.85, gradient: 0.5, seed: 19 } },
+    { name: "Oracle",   cls: "Construct · d20 core, one lens",        cfg: { species: "blob", body: "round", eyes: "lens", hardness: 1, core: "d20", shell: true, family: "tetra", theme: "indigo", gravity: 0.9, gradient: 0.4, seed: 77 } },
     { name: "Quiet",    cls: "Blob · slit eyes, gravity 0.7",         cfg: { species: "blob", body: "pebble", eyes: "slit", theme: "#5b5763", gravity: 0.7, gradient: 0.3, seed: 31 } },
-    { name: "Quire",    cls: "Claude × Astra · open codex, one lens",  cfg: { species: "quire", hand: "both", theme: "sumi", gravity: 0.7, seed: 11 } },
-    { name: "Folio",    cls: "Quire · left-handed, ember, lighter",    cfg: { species: "quire", hand: "left", theme: "ember", gravity: 0.35, seed: 6 } },
+    { name: "Quire",    cls: "Claude × Astra · open codex, one lens",  cfg: { species: "quire", hand: "both", theme: "slate", gravity: 0.7, seed: 11 } },
+    { name: "Folio",    cls: "Quire · left-handed, verdigris, lighter", cfg: { species: "quire", hand: "left", theme: "verdigris", gravity: 0.35, seed: 6 } },
   ];
   const roster = document.getElementById("roster");
   for (const being of ROSTER) {

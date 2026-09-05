@@ -31,6 +31,29 @@ const BUILTIN: Record<string, BuddyTheme> = {
     coreDisc: "#0d1f1e", eyeHot: "#eafffb", eye: "#43e0d2", accent: "#2fa9a0",
     glow: "rgba(63,214,200,", seam: "rgba(10,45,42,.3)",
   },
+  // ---- the grave packs: cool, no red anywhere. A red body with a hot orange
+  // optic is the killer-robot trope; these keep intensity in contrast and
+  // value, not in warmth. ----
+  slate: {
+    face: "#eef1f6", side: "#d3d9e4", edge: "#a7b1c3",
+    coreDisc: "#141a24", eyeHot: "#eaf6ff", eye: "#9fd0ff", accent: "#5b6f8f",
+    glow: "rgba(122,160,214,", seam: "rgba(20,26,36,.3)",
+  },
+  indigo: {
+    face: "#f0eff8", side: "#d8d6ea", edge: "#aeaac9",
+    coreDisc: "#17152a", eyeHot: "#f1efff", eye: "#b9b4ff", accent: "#5b57a8",
+    glow: "rgba(139,133,232,", seam: "rgba(23,21,42,.3)",
+  },
+  graphite: {
+    face: "#f1f1f2", side: "#d9dadd", edge: "#b0b3b9",
+    coreDisc: "#121316", eyeHot: "#f4f7fb", eye: "#cfd8e3", accent: "#6a6f78",
+    glow: "rgba(170,178,190,", seam: "rgba(18,19,22,.3)",
+  },
+  verdigris: {
+    face: "#eef4f0", side: "#d3e0d7", edge: "#a6bfb0",
+    coreDisc: "#101c17", eyeHot: "#edfff6", eye: "#8fe0b8", accent: "#3f8f7a",
+    glow: "rgba(96,190,160,", seam: "rgba(16,28,23,.3)",
+  },
 };
 
 const registry = new Map<string, BuddyTheme>(Object.entries(BUILTIN));
