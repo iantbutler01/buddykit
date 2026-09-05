@@ -2,6 +2,7 @@ import type { FamilyName } from "./families";
 import type { CoreShape } from "./cores";
 import type { ThemeInput } from "./themes";
 import type { BlobBody, BlobEyes } from "./blob";
+import type { BlockBuild } from "./block";
 import { accessoryRank, type AccessoryName } from "./accessories";
 
 /**
@@ -13,9 +14,10 @@ import { accessoryRank, type AccessoryName } from "./accessories";
  */
 export interface BuddyConfig {
   // ---- identity ----
-  /** visual species: geometric emblem or two-eyed blob (default "emblem").
-   *  Everything else — hardness, shell ring, accessories — mixes freely. */
-  species: "emblem" | "blob";
+  /** visual species: geometric emblem, two-eyed blob, or stacked-slab block
+   *  (default "emblem"). Everything else — hardness, shell ring, accessories —
+   *  mixes freely. */
+  species: "emblem" | "blob" | "block";
   /** orbit the emblem's plate shell around the blob body (default false) */
   shell: boolean;
   /** blob body hardness 0..1 — 0 soft organic blob, 1 rigid faceted core
@@ -25,6 +27,8 @@ export interface BuddyConfig {
   family: FamilyName;
   /** body form — blob species (default "round") */
   body: BlobBody;
+  /** slab proportions — block species (default "stout") */
+  build: BlockBuild;
   /** eye style — blob species (default "googly") */
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
@@ -91,6 +95,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   hardness: 0,
   family: "tetra",
   body: "round",
+  build: "stout",
   eyes: "googly",
   core: "sphere",
   accessories: [],

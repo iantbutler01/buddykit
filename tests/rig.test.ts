@@ -166,11 +166,50 @@ describe("blob species", () => {
 });
 
 describe("blob eyes", () => {
-  it("three styles, googly default", async () => {
+  it("six styles, googly default", async () => {
     const { BLOB_EYES } = await import("../src/blob");
     const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
-    expect(BLOB_EYES).toEqual(["googly", "slit", "glint"]);
+    expect(BLOB_EYES).toEqual(["googly", "slit", "glint", "dot", "arc", "ring"]);
     expect(DEFAULT_CONFIG.eyes).toBe("googly");
     expect(resolveConfig({ eyes: "slit" }).eyes).toBe("slit");
+  });
+});
+
+describe("block species", () => {
+  it("ships five builds and a stacked slab layout that nests inside the crown/leg anchors", async () => {
+    const { BLOCK_BUILDS, blockSlabs, blockTopY, blockBotY, blockEyeAnchor } = await import("../src/block");
+    expect(BLOCK_BUILDS).toEqual(["stout", "tall", "wide", "mini", "long"]);
+    for (const build of BLOCK_BUILDS) {
+      const slabs = blockSlabs(build, 100);
+      expect(slabs.map((s) => s.kind).sort()).toEqual(["crown", "head", "leg", "leg", "nub", "nub", "torso"]);
+      const top = blockTopY(build, 100), bot = blockBotY(build, 100);
+      expect(top).toBeLessThan(0);
+      expect(bot).toBeGreaterThan(0);
+      const eye = blockEyeAnchor(build, 100);
+      expect(eye.cy).toBeGreaterThan(top);
+      expect(eye.cy).toBeLessThan(bot);
+      expect(eye.cx).toBeGreaterThan(0);
+      // the crown is the topmost slab and sits above the head
+      const crown = slabs.find((s) => s.kind === "crown")!, head = slabs.find((s) => s.kind === "head")!;
+      expect(crown.y).toBeLessThanOrEqual(head.y);
+    }
+  });
+
+  it("squash stretches the stack without separating it", async () => {
+    const { blockSlabs } = await import("../src/block");
+    const rest = blockSlabs("stout", 100, 0), tall = blockSlabs("stout", 100, 0.2);
+    const restH = Math.max(...rest.map((s) => s.y + s.h)) - Math.min(...rest.map((s) => s.y));
+    const tallH = Math.max(...tall.map((s) => s.y + s.h)) - Math.min(...tall.map((s) => s.y));
+    expect(tallH).toBeLessThan(restH);   // +squash squashes vertically (kx up, ky down)
+    const head = tall.find((s) => s.kind === "head")!, torso = tall.find((s) => s.kind === "torso")!;
+    expect(Math.abs(head.y + head.h - torso.y)).toBeLessThan(1e-9);
+  });
+
+  it("config accepts species block with a default build", async () => {
+    const { resolveConfig } = await import("../src/config");
+    const cfg = resolveConfig({ species: "block" });
+    expect(cfg.species).toBe("block");
+    expect(cfg.build).toBe("stout");
+    expect(resolveConfig({ build: "wide" }).build).toBe("wide");
   });
 });

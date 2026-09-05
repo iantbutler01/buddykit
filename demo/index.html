@@ -93,7 +93,15 @@
       <div class="g"><span class="l">Species</span>
         <button class="sp" data-v="emblem" aria-pressed="true">emblem</button>
         <button class="sp" data-v="blob">blob</button>
+        <button class="sp" data-v="block">block</button>
         <button id="ringchip">⬡ ring</button>
+      </div>
+      <div class="g"><span class="l">Build</span>
+        <button class="bu" data-v="stout" aria-pressed="true">stout</button>
+        <button class="bu" data-v="tall">tall</button>
+        <button class="bu" data-v="wide">wide</button>
+        <button class="bu" data-v="mini">mini</button>
+        <button class="bu" data-v="long">long</button>
       </div>
       <div class="g"><span class="l">Body</span>
         <button class="bo" data-v="round" aria-pressed="true">round</button>
@@ -209,6 +217,7 @@
     }));
   press(".st", (v) => buddy.setState(v));
   press(".sp", (v) => buddy.configure({ species: v }));
+  press(".bu", (v) => buddy.configure({ build: v }));
   // shell ring — independent toggle, mixes with any body/hardness
   const ringchip = document.getElementById("ringchip");
   ringchip.addEventListener("click", () => {
@@ -378,6 +387,10 @@
     { name: "Doc",      cls: "Medic · stethoscope + badge",         cfg: { species: "blob", body: "round", eyes: "arc", theme: "#7fb069", accessories: ["stethoscope", "badge"], seed: 72 } },
     { name: "Sous",     cls: "Chef · toque",                        cfg: { species: "blob", body: "bean", eyes: "dot", theme: "#4fb8a8", accessories: ["toque"], seed: 61 } },
     { name: "Hopps",    cls: "Bunny · party regular",               cfg: { species: "blob", body: "round", eyes: "googly", theme: "#e07aa8", accessories: ["bunny", "party"], seed: 101 } },
+    { name: "Brick",    cls: "Block · stout, window eyes, cap",      cfg: { species: "block", build: "stout", eyes: "googly", theme: "#e0a12f", accessories: ["cap"], gradient: 0.4, seed: 14 } },
+    { name: "Sprocket", cls: "Block · tall visor, headset",          cfg: { species: "block", build: "tall", eyes: "slit", theme: "#4fb8a8", accessories: ["headset"], gradient: 0.5, seed: 27 } },
+    { name: "Moss",     cls: "Block · wide, ears, hollow eyes",      cfg: { species: "block", build: "wide", eyes: "ring", theme: "#7fb069", accessories: ["ears"], gradient: 0.3, seed: 88 } },
+    { name: "Nib",      cls: "Block · mini, dot eyes, beanie",       cfg: { species: "block", build: "mini", eyes: "dot", theme: "#8a7cf0", accessories: ["beanie", "scarf"], seed: 9 } },
   ];
   const roster = document.getElementById("roster");
   for (const being of ROSTER) {
@@ -414,6 +427,7 @@
       b.setAttribute("aria-pressed", String(b.dataset.v === String(val))));
     pressGroup(".sp", cfg.species);
     pressGroup(".bo", cfg.body);
+    pressGroup(".bu", cfg.build);
     pressGroup(".ey", cfg.eyes);
     pressGroup(".fam", cfg.family);
     pressGroup(".co", cfg.core);

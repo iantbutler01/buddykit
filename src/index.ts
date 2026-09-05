@@ -15,3 +15,5 @@ export { BLOB_BODIES, BLOB_EYES, traceBlob, blobTopR, blobBotR } from "./blob";
 export type { BlobBody, BlobEyes } from "./blob";
 export { ACCESSORIES, drawAccessory } from "./accessories";
 export type { AccessoryName } from "./accessories";
+export { BLOCK_BUILDS, blockSlabs, traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
+export type { BlockBuild, Slab } from "./block";

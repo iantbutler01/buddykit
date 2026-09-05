@@ -13,6 +13,7 @@ import { FAMILIES, FamilyName, PlateDef, shapePts } from "./families";
 import { STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
+import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
 import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
@@ -389,6 +390,66 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2 * DPR; ctx.lineCap = "round"; ctx.stroke();
       ctx.restore();
     });
+
+    if (cfg.species === "block") {
+      // ---- block species: a stacked-slab chunk. Same channels as the blob
+      // (bob, tilt, gaze, lids, emotes) read through a rectangle grammar;
+      // squash is damped — a block flexes, it never wobbles ----
+      const bodyR = R * 0.98 * cfg.coreSize;
+      if (cfg.shell) drawPlates(bodyR * 1.3, 0.62);
+      const squash = 0.5 * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.1 : 0));
+      const bodyPath = new Path2D();
+      traceBlock(bodyPath, cfg.build, bodyR, squash);
+      const anchor = blockEyeAnchor(cfg.build, bodyR, squash);
+      const exOff = eyeX.p * bodyR * 0.08, eyOff = (eyeY.p + emoteGazeY) * bodyR * 0.08;
+      const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
+      const eyeSize = anchor.headH * 0.42 * Math.max(0.4, wide);
+      const geom = {
+        topY: blockTopY(cfg.build, bodyR, squash),
+        botY: blockBotY(cfg.build, bodyR, squash),
+        bodyR, t, dark: T.coreDisc, accent: T.accent,
+        bodyPath, colors: cfg.accessoryColors,
+        eyeCX: anchor.cx * cfg.eyeSpacing,
+        eyeCY: anchor.cy - anchor.headH * 0.5 * (cfg.eyeRaise - 1),
+        eyeOX: cfg.eyeShift * bodyR * 0.3 + exOff,
+        eyeOY: eyOff,
+        ringR: eyeSize * 0.62,
+      };
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
+      // glow halo + a real drop shadow: a block is always an object
+      ctx.save();
+      ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
+      ctx.shadowBlur = 18 * DPR * G;
+      ctx.fillStyle = T.accent; ctx.fill(bodyPath);
+      ctx.shadowColor = "rgba(0,0,0,0.34)";
+      ctx.shadowBlur = 10 * DPR; ctx.shadowOffsetY = 5 * DPR;
+      ctx.fill(bodyPath);
+      ctx.restore();
+      drawBlockBody(ctx, cfg.build, bodyR, squash, {
+        accent: T.accent, edge: T.edge, dark: T.coreDisc, DPR,
+        bevel: 0.55 + 0.45 * cfg.gradient,
+        shuffle: state === "working" ? 1 : eJoy,
+        t,
+      });
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
+      if (eyeOn > 0.01 || state === "away") {
+        const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
+        const style: Parameters<typeof drawBlockEyes>[1]["style"] = eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
+        drawBlockEyes(ctx, {
+          style,
+          cx: geom.eyeCX, cy: geom.eyeCY, ox: geom.eyeOX, oy: geom.eyeOY,
+          headW: anchor.headW, size: eyeSize,
+          ap, closed: state === "away" || ap < 0.12,
+          gx: eyeX.p, gy: eyeY.p + emoteGazeY,
+          slant: emoteSlant, rot: style === cfg.eyes ? (cfg.eyeAngle * Math.PI) / 180 : 0,
+          dark: T.coreDisc, hot: T.eyeHot, edge: T.edge, DPR,
+        });
+      }
+      for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
+      ctx.restore();
+      if (!reduced) raf = requestAnimationFrame(frame);
+      return;
+    }
 
     if (cfg.species !== "emblem") {
       // ---- blob species: everything is a knob — hardness morphs the soft
