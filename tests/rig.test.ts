@@ -227,40 +227,41 @@ describe("block species", () => {
 });
 
 describe("quire species", () => {
-  it("has five leaves whose angles mirror with the hand and a crown above the spine", async () => {
+  it("the fan is a centred peacock tail: five leaves mirror-symmetric about the spine", async () => {
     const { quireLeaves, quireTopY, QUIRE_SPINE, QUIRE_ORDER } = await import("../src/quire");
-    const right = quireLeaves(100, 1, [0, 0, 0, 0, 0], 1), left = quireLeaves(100, 1, [0, 0, 0, 0, 0], -1);
-    expect(right).toHaveLength(5);
-    right.forEach((leaf, i) => expect(leaf.angle).toBeCloseTo(-left[i].angle, 9));
-    expect(quireTopY(100, right)).toBeLessThan(QUIRE_SPINE.top * 100);
+    const leaves = quireLeaves(100, 1, [0, 0, 0]);
+    expect(leaves).toHaveLength(5);
+    leaves.forEach((leaf, i) => expect(leaf.angle).toBeCloseTo(-leaves[4 - i].angle, 9));
+    expect(leaves[2].angle).toBe(0);
+    expect(quireTopY(100, leaves)).toBeLessThan(QUIRE_SPINE.top * 100);
     expect([...QUIRE_ORDER].sort()).toEqual([0, 1, 2, 3, 4]);
   });
 
-  it("needs_you lifts the outer leaf: a -18° offset on leaf 0 raises the crown", async () => {
-    const { quireLeaves, quireTopY } = await import("../src/quire");
-    const rest = quireLeaves(100, 1, [0, 0, 0, 0, 0], 1);
-    const raised = quireLeaves(100, 1, [-18, 0, 0, 0, 0], 1);
-    expect(quireTopY(100, raised)).toBeLessThanOrEqual(quireTopY(100, rest));
-    // and the leaf swings outward, away from the fan
-    expect(Math.abs(raised[0].angle)).toBeGreaterThan(Math.abs(rest[0].angle));
+  it("a positive outer-pair offset opens both outer leaves outward, symmetrically", async () => {
+    const { quireLeaves } = await import("../src/quire");
+    const rest = quireLeaves(100, 1, [0, 0, 0]), peeled = quireLeaves(100, 1, [18, 0, 0]);
+    expect(peeled[0].angle).toBeLessThan(rest[0].angle);
+    expect(peeled[4].angle).toBeGreaterThan(rest[4].angle);
+    expect(peeled[0].angle).toBeCloseTo(-peeled[4].angle, 9);
   });
 
-  it("config accepts species quire and hand", async () => {
-    const { resolveConfig } = await import("../src/config");
-    expect(resolveConfig({ species: "quire" }).hand).toBe("both");
+  it("codex pages stay attached to the spine: the inner edge is flush for its full height", async () => {
     const { codexPages, codexTopY, QUIRE_SPINE } = await import("../src/quire");
     const pages = codexPages(100, 1, [0, 0, 0]);
     expect(pages).toHaveLength(6);
-    // the codex is mirror-symmetric at rest: each left page mirrors its right twin
-    for (const pg of pages.filter((q) => q.side === -1)) {
-      const twin = pages.find((q) => q.side === 1 && q.index === pg.index)!;
+    const sx = QUIRE_SPINE.w * 100 / 2;
+    for (const pg of pages) {
+      expect(pg.pts[0][0]).toBeCloseTo(pg.side * sx, 9);   // bottom inner corner on the spine edge
+      expect(pg.pts[4][0]).toBeCloseTo(pg.side * sx, 9);   // top inner corner on the spine edge
+      const twin = pages.find((q) => q.side === -pg.side && q.index === pg.index)!;
       pg.pts.forEach((pt, i) => { expect(pt[0]).toBeCloseTo(-twin.pts[i][0], 9); expect(pt[1]).toBeCloseTo(twin.pts[i][1], 9); });
     }
-    // outermost pages are the tallest and rise above the spine
     expect(codexTopY(100, pages)).toBeLessThan(QUIRE_SPINE.top * 100);
-    // shut (spread 0) pages stand vertical: inner and outer bottom corners share a y
-    const shut = codexPages(100, 0, [0, 0, 0])[0];
-    expect(shut.pts[0][1]).toBeCloseTo(shut.pts[1][1], 9);
-    expect(resolveConfig({ species: "quire", hand: "left" }).hand).toBe("left");
+  });
+
+  it("config accepts species quire with a form", async () => {
+    const { resolveConfig } = await import("../src/config");
+    expect(resolveConfig({ species: "quire" }).form).toBe("codex");
+    expect(resolveConfig({ species: "quire", form: "fan" }).form).toBe("fan");
   });
 });

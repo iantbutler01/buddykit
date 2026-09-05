@@ -3,7 +3,7 @@ import type { CoreShape } from "./cores";
 import type { ThemeInput } from "./themes";
 import type { BlobBody, BlobEyes } from "./blob";
 import type { BlockBuild } from "./block";
-import type { QuireHand } from "./quire";
+import type { QuireForm } from "./quire";
 import { accessoryRank, type AccessoryName } from "./accessories";
 
 /**
@@ -30,9 +30,8 @@ export interface BuddyConfig {
   body: BlobBody;
   /** slab proportions — block species (default "stout") */
   build: BlockBuild;
-  /** quire species: "both" = symmetric open codex (default); "left"/"right" fan
-   *  to one side; "auto" = a side from the seed */
-  hand: QuireHand;
+  /** quire species: "codex" = a stepped open book (default), "fan" = a centred peacock tail */
+  form: QuireForm;
   /** eye style — blob species (default "googly") */
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
@@ -103,7 +102,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   family: "tetra",
   body: "round",
   build: "stout",
-  hand: "both",
+  form: "codex",
   eyes: "googly",
   core: "sphere",
   accessories: [],

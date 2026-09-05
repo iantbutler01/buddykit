@@ -14,9 +14,10 @@ npm install @metonymous/buddykit
 import { mountBuddy } from "@metonymous/buddykit";
 
 const buddy = mountBuddy(canvasEl, {
-  species: "blob",        // "emblem" (ghost) | "blob" (soft, two-eyed) | "block" (stacked slabs) | "quire" (a handed fan of leaves, one lens)
+  species: "blob",        // "emblem" (ghost) | "blob" (soft, two-eyed) | "block" (stacked slabs) | "quire" (pages around a spine, one lens)
   body: "round", eyes: "googly", theme: "ember",   // eyes also: slit | glint | dot | arc | ring | lens (one optic)
-  build: "stout",         // block species: stout | tall | wide | mini | long
+  build: "stout",         // block species: stout | tall | wide | mini | long | sentinel
+  form: "codex",          // quire species: codex (stepped open book) | fan (peacock tail)
   accessories: ["ears", "bowtie"],
   accessoryColors: { bowtie: "#d6453d" },   // per-accessory color overrides
   gravity: 0,             // 0 playful → 1 grave: hard corners, muted light, narrow eyes, slow motion

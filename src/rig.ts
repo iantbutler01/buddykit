@@ -15,7 +15,7 @@ import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
 import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes } from "./block";
 import { drawLens } from "./lens";
-import { quireLeaves, quireRootX, traceQuire, quireTopY, drawQuireBody, codexPages, traceCodex, codexTopY, drawCodexBody, QUIRE_LENS, QUIRE_LENS_R, QUIRE_SPINE, type HandSign } from "./quire";
+import { quireLeaves, traceQuire, quireTopY, drawQuireBody, codexPages, traceCodex, codexTopY, drawCodexBody, QUIRE_LENS, QUIRE_LENS_R, QUIRE_SPINE } from "./quire";
 import { drawAccessory, accessoryLayer } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
@@ -405,7 +405,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // body speaks through spread (how the leaves gather) and per-leaf
       // offsets (one leaf held apart). Shared vision, Claude × Codex Astra. ----
       const r = R * 0.8 * cfg.coreSize;
-      const hand: HandSign = cfg.hand === "both" ? 0 : cfg.hand === "left" ? -1 : cfg.hand === "right" ? 1 : (cfg.seed % 2 === 0 ? 1 : -1);
+      const codex = cfg.form !== "fan";
       // spread target by state, then emotes on top
       // gravity tightens the fan: a closed book rather than a display
       let spreadT = (state === "listening" ? 0.7 : state === "away" ? 0.1 : 1) * (1 - 0.15 * grav);
@@ -420,30 +420,29 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       qSpread.step(dt0);
       // per-leaf offsets: working riffle, needs_you raised leaf, sad droop, annoyed flip
       const offT = [0, 0, 0, 0, 0];
-      const nLeaf = hand === 0 ? 3 : 5;   // codex: three page indices, mirrored on both stacks
+      const nLeaf = 3;   // both forms: three mirrored pair offsets (outer, inner, centre)
       if (state === "working") {
         nextFlick -= dt;
         if (nextFlick <= 0) { nextFlick = 0.09; qOff[flickIdx].set(6); qOff[flickIdx].p += 4; flickIdx = (flickIdx + 1) % nLeaf; }
       }
-      // expression: the outermost leaf/page peels away (outward = negative for the
-      // fan's leaf 0; for the codex the page offset opens further, so positive)
-      const peel = hand === 0 ? 1 : -1;
-      if (state === "needs_you") offT[0] += 18 * peel;
-      if (eSad > 0) for (let i = 0; i < 5; i++) offT[i] += 12 * eSad * (hand === 0 ? -1 : 1);   // fan droops to its side; the codex sags shut
-      if (eAnnoy > 0) offT[0] += 30 * eAnnoy * peel;
+      // expression, mirrored on both sides: the outer pair peels outward for
+      // needs_you and annoyed; sad sags everything inward
+      if (state === "needs_you") offT[0] += 18;
+      if (eSad > 0) for (let i = 0; i < 3; i++) offT[i] -= 12 * eSad;
+      if (eAnnoy > 0) offT[0] += 30 * eAnnoy;
       qOff.forEach((sp, i) => {
         if (!(state === "working" && i === (flickIdx + nLeaf - 1) % nLeaf && sp.t === 6)) sp.set(offT[i]);
         sp.step(dt0);
       });
       const breath = breathe * Math.sin(t * 0.9);
-      const offsets = qOff.map((s) => s.p + breath * (hand === 0 ? 0.5 : 1));
-      const leaves = hand === 0 ? null : quireLeaves(r, qSpread.p, offsets, hand);
-      const pages = hand === 0 ? codexPages(r, qSpread.p * (1 - 0.5 * grav), offsets) : null;
+      const offsets = qOff.map((s) => s.p + breath * (codex ? 0.5 : 1));
+      const leaves = codex ? null : quireLeaves(r, qSpread.p, offsets);
+      const pages = codex ? codexPages(r, qSpread.p * (1 - 0.5 * grav), offsets) : null;
       // listening squares the body: the curious tilt returns to level
       if (state === "listening") bodyTilt.set(spinAccum);
       const bodyPath = new Path2D();
-      if (leaves) traceQuire(bodyPath, r, leaves, hand); else traceCodex(bodyPath, r, pages!);
-      const lensX = quireRootX(r, hand), lensY = QUIRE_LENS[1] * r;   // the lens sits in the spine, low
+      if (leaves) traceQuire(bodyPath, r, leaves); else traceCodex(bodyPath, r, pages!);
+      const lensX = 0, lensY = QUIRE_LENS[1] * r;   // the lens sits in the spine, low
       const lensR = QUIRE_LENS_R * r * cfg.eyeSize;
       const geom = {
         topY: leaves ? quireTopY(r, leaves) : codexTopY(r, pages!),
@@ -463,7 +462,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.fill(bodyPath);
       ctx.restore();
       const paint = { accent: T.accent, edge: T.edge, dark: T.coreDisc, DPR, gravity: grav };
-      if (leaves) drawQuireBody(ctx, r, leaves, hand, paint); else drawCodexBody(ctx, r, pages!, paint);
+      if (leaves) drawQuireBody(ctx, r, leaves, paint); else drawCodexBody(ctx, r, pages!, paint);
       for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
       // the lens: aperture from the lid spring; iris from attention and mood;
       // listening opens it a little wider

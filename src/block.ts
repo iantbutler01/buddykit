@@ -123,7 +123,7 @@ export interface BlockPaint {
  *  go first so the torso overlaps them; the crown lands over the head. */
 export function drawBlockBody(ctx: CanvasRenderingContext2D, build: BlockBuild, r: number, squash: number, p: BlockPaint) {
   const slabs = blockSlabs(build, r, squash, p.gravity);
-  const lw = Math.max(1.5 * p.DPR, r * 0.075);   // thick outline scales with the figure (r is already in device px)
+  const lw = Math.max(1 * p.DPR, r * 0.03);   // hairline outline (Ian: the thick ones were not great)
   let legIdx = 0;
   for (const s of slabs) {
     const dark = s.kind === "crown";

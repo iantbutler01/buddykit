@@ -105,11 +105,9 @@
         <button class="bu" data-v="long">long</button>
         <button class="bu" data-v="sentinel">sentinel</button>
       </div>
-      <div class="g"><span class="l">Hand</span>
-        <button class="hd" data-v="both" aria-pressed="true">both</button>
-        <button class="hd" data-v="auto">auto</button>
-        <button class="hd" data-v="left">left</button>
-        <button class="hd" data-v="right">right</button>
+      <div class="g"><span class="l">Form</span>
+        <button class="fo" data-v="codex" aria-pressed="true">codex</button>
+        <button class="fo" data-v="fan">fan</button>
       </div>
       <div class="g"><span class="l">Body</span>
         <button class="bo" data-v="round" aria-pressed="true">round</button>
@@ -231,7 +229,7 @@
   press(".st", (v) => buddy.setState(v));
   press(".sp", (v) => buddy.configure({ species: v }));
   press(".bu", (v) => buddy.configure({ build: v }));
-  press(".hd", (v) => buddy.configure({ hand: v }));
+  press(".fo", (v) => buddy.configure({ form: v }));
   // shell ring — independent toggle, mixes with any body/hardness
   const ringchip = document.getElementById("ringchip");
   ringchip.addEventListener("click", () => {
@@ -409,8 +407,8 @@
     { name: "Basalt",   cls: "Sentinel · visor, shell ring, grave",  cfg: { species: "block", build: "sentinel", eyes: "slit", shell: true, family: "petal", theme: "graphite", gravity: 0.85, gradient: 0.5, seed: 19 } },
     { name: "Oracle",   cls: "Construct · d20 core, one lens",        cfg: { species: "blob", body: "round", eyes: "lens", hardness: 1, core: "d20", shell: true, family: "tetra", theme: "indigo", gravity: 0.9, gradient: 0.4, seed: 77 } },
     { name: "Quiet",    cls: "Blob · slit eyes, gravity 0.7",         cfg: { species: "blob", body: "pebble", eyes: "slit", theme: "#5b5763", gravity: 0.7, gradient: 0.3, seed: 31 } },
-    { name: "Quire",    cls: "Claude × Astra · open codex, one lens",  cfg: { species: "quire", hand: "both", theme: "slate", gravity: 0.7, seed: 11 } },
-    { name: "Folio",    cls: "Quire · left-handed, verdigris, lighter", cfg: { species: "quire", hand: "left", theme: "verdigris", gravity: 0.35, seed: 6 } },
+    { name: "Quire",    cls: "Claude × Astra · open codex, one lens",  cfg: { species: "quire", form: "codex", theme: "slate", gravity: 0.7, seed: 11 } },
+    { name: "Folio",    cls: "Quire · peacock fan, verdigris, lighter", cfg: { species: "quire", form: "fan", theme: "verdigris", gravity: 0.35, seed: 6 } },
   ];
   const roster = document.getElementById("roster");
   for (const being of ROSTER) {
@@ -448,7 +446,7 @@
     pressGroup(".sp", cfg.species);
     pressGroup(".bo", cfg.body);
     pressGroup(".bu", cfg.build);
-    pressGroup(".hd", cfg.hand);
+    pressGroup(".fo", cfg.form);
     pressGroup(".ey", cfg.eyes);
     pressGroup(".fam", cfg.family);
     pressGroup(".co", cfg.core);
