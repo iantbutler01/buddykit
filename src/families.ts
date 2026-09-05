@@ -11,6 +11,11 @@ export interface PlateDef {
   d: number;   // distance multiplier
   s: number;   // size multiplier
   sh: ShapeKind;
+  /** degrees the plate swings around the core per unit of spread above the
+   *  resting trust — pages open like a book, leaves fan like a tail (default 0) */
+  hinge?: number;
+  /** multiplier on the idle breathing and working rotation (default 1) */
+  sway?: number;
 }
 
 export type FamilyName = "tetra" | "octa" | "ring" | "petal" | "shard" | "prism" | "codex" | "fan";
@@ -36,14 +41,16 @@ export const FAMILIES: Record<FamilyName, PlateDef[]> = {
   // an open book: three stepped pages a side, the outer ones larger and
   // splayed a little further from level, so the stack reads as leaves
   // turned open from the spine core
+  // the outer pages hinge furthest, so opening splays the stack
   codex: [
-    { a: 180 + 4, d: 0.62, s: 1.55, sh: "page" }, { a: 180 + 9, d: 0.7, s: 1.4, sh: "page" }, { a: 180 + 14, d: 0.78, s: 1.25, sh: "page" },
-    { a: -4, d: 0.62, s: 1.55, sh: "page" }, { a: -9, d: 0.7, s: 1.4, sh: "page" }, { a: -14, d: 0.78, s: 1.25, sh: "page" },
+    { a: 180 + 4, d: 0.62, s: 1.55, sh: "page", hinge: 30, sway: 2 }, { a: 180 + 9, d: 0.7, s: 1.4, sh: "page", hinge: 45, sway: 2.5 }, { a: 180 + 14, d: 0.78, s: 1.25, sh: "page", hinge: 60, sway: 3 },
+    { a: -4, d: 0.62, s: 1.55, sh: "page", hinge: -30, sway: 2 }, { a: -9, d: 0.7, s: 1.4, sh: "page", hinge: -45, sway: 2.5 }, { a: -14, d: 0.78, s: 1.25, sh: "page", hinge: -60, sway: 3 },
   ],
-  // a peacock tail: five leaves fanned over the top, centre longest
+  // a peacock tail: five leaves fanned over the top, centre longest; the
+  // outer leaves hinge most so the tail opens wide and closes to a bunch
   fan: [
-    { a: -130, d: 0.7, s: 1.0, sh: "leaf" }, { a: -110, d: 0.78, s: 1.12, sh: "leaf" }, { a: -90, d: 0.84, s: 1.2, sh: "leaf" },
-    { a: -70, d: 0.78, s: 1.12, sh: "leaf" }, { a: -50, d: 0.7, s: 1.0, sh: "leaf" },
+    { a: -130, d: 0.7, s: 1.0, sh: "leaf", hinge: -50, sway: 3 }, { a: -110, d: 0.78, s: 1.12, sh: "leaf", hinge: -25, sway: 2.5 }, { a: -90, d: 0.84, s: 1.2, sh: "leaf", sway: 2 },
+    { a: -70, d: 0.78, s: 1.12, sh: "leaf", hinge: 25, sway: 2.5 }, { a: -50, d: 0.7, s: 1.0, sh: "leaf", hinge: 50, sway: 3 },
   ],
 };
 

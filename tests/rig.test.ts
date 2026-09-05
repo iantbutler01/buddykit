@@ -232,8 +232,11 @@ describe("block species", () => {
     expect(joy.hop).toBeGreaterThan(0.1);
     expect(gestures({ ...base, state: "working" }).pump).toBe(1);
     expect(gestures({ ...base, state: "idle" }).pump).toBe(0);
-    // gravity damps the gesture, never inverts it
+    // gravity damps the gesture, never inverts it — and never leaks into the shared tables
+    for (let i = 0; i < 50; i++) posture({ ...base, state: "needs_you", gravity: 1 });
     expect(posture({ ...base, state: "needs_you", gravity: 1 }).armR.sh).toBeGreaterThan(90);
+    expect(posture({ ...base, state: "needs_you" }).armR.sh).toBe(172);
+    expect(posture({ ...base, state: "idle" })).toEqual(REST_POSE);
     // a wave through the rig: the right hand ends up above the shoulder
     const rig = new LimbRig();
     let pose = REST_POSE;
@@ -241,6 +244,8 @@ describe("block species", () => {
     const fig = blockFigure("stout", 100, 0, 0, pose);
     const hand = fig.arms[5], shoulder = fig.arms[3];
     expect(hand.py).toBeLessThan(shoulder.py);
+    const { blockTopY } = await import("../src/block");
+    expect(hand.py - hand.len).toBeLessThan(blockTopY("stout", 100) + 10);   // the waving hand reaches the crown
     // the rest figure is mirror-symmetric
     const restFig = blockFigure("stout", 100);
     expect(restFig.arms[0].px).toBeCloseTo(-restFig.arms[3].px, 6);
@@ -264,6 +269,9 @@ describe("codex and fan shells", () => {
     expect(coreRadiusAt("spine", 0)).toBeLessThan(coreRadiusAt("spine", Math.PI / 2));   // taller than wide
     expect(FAMILIES.codex.every((d) => d.sh === "page")).toBe(true);
     expect(FAMILIES.fan.every((d) => d.sh === "leaf")).toBe(true);
+    // hinges mirror: the left page turns one way, its twin the other; the fan opens outward both sides
+    expect(FAMILIES.codex.map((d) => d.hinge)).toEqual([30, 45, 60, -30, -45, -60]);
+    expect(FAMILIES.fan.map((d) => d.hinge ?? 0)).toEqual([-50, -25, 0, 25, 50]);
     // mirror symmetry: every codex page on the left has a twin on the right
     const left = FAMILIES.codex.filter((d) => Math.cos(d.a * Math.PI / 180) < 0).map((d) => [180 - d.a, d.d, d.s].join());
     const right = FAMILIES.codex.filter((d) => Math.cos(d.a * Math.PI / 180) > 0).map((d) => [((d.a % 360) + 360) % 360 - 0, d.d, d.s].join());

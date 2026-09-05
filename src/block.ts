@@ -103,15 +103,16 @@ export function blockFigure(build: BlockBuild, r: number, squash = 0, gravity = 
   const corner = blockCorner(gravity);
   const slabs = blockSlabs(build, r, squash, gravity);
   const torso = slabs[0], head = slabs[1];
-  const armW = d.nubW * 1.3 * r * kx, upper = d.nubH * 0.8 * r * ky, fore = upper * 0.72, hand = armW * 0.95;
+  const armW = d.nubW * 1.3 * r * kx, upper = d.nubH * 1.05 * r * ky, fore = upper * 0.8, hand = armW * 0.95;
   const legW = d.legW * r * kx, shin = d.legH * 1.1 * r * ky, footH = legW * 0.5, footW = legW * 1.35;
   const arms: Chunk[] = [], legs: Chunk[] = [];
   const chunk = (kind: Chunk["kind"], px: number, py: number, a: number, w: number, len: number, rr: number): Chunk =>
     ({ kind, px, py, a, w, len, r: rr * r });
-  const arm = (side: -1 | 1, ap: ArmPose) => {
-    // the shoulder sits just outside the torso so the arm hangs clear of it
+  const arm = (side: -1 | 1, ap: ArmPose, shrug: number) => {
+    // the shoulder sits just outside the torso so the arm hangs clear of it;
+    // a shrug slides it up the torso side so a raised hand clears the head
     const sx = side > 0 ? torso.x + torso.w + armW * 0.42 : torso.x - armW * 0.42;
-    const sy = torso.y + torso.h * 0.1;
+    const sy = torso.y + torso.h * 0.1 - shrug * r;
     // canvas rotation is clockwise, so a hanging chunk rotated by +a swings
     // toward -x; outward for the right side is therefore a negative angle
     const a1 = -side * ap.sh * DEG, a2 = -side * (ap.sh + ap.el) * DEG;
@@ -129,7 +130,7 @@ export function blockFigure(build: BlockBuild, r: number, squash = 0, gravity = 
     legs.push(chunk("shin", hx, hy, a, legW, shin, corner * 0.7));
     legs.push(chunk("foot", fx, fy, a, footW, footH, corner * 0.6));
   };
-  arm(-1, pose.armL); arm(1, pose.armR);
+  arm(-1, pose.armL, pose.shrugL); arm(1, pose.armR, pose.shrugR);
   leg(-1, pose.legL); leg(1, pose.legR);
   return {
     slabs, legs, arms,

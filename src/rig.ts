@@ -371,13 +371,18 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       p.scl.set(Rb * 0.52 * p.def.s * cfg.plateSize * szMul);
       if (live) { p.rad.step(dt0); p.scl.step(dt0); }
       const flut = (eJoy * Math.sin(t * 18 + i * 1.7) * 0.08 + eAngry * Math.sin(t * 26 + i * 2.3) * 0.05) * Rb;
-      const ang = p.def.a * Math.PI / 180;
+      // hinge: the plate swings around the core as the shell opens past its
+      // resting trust, so pages turn and leaves fan instead of only sliding out
+      const openness = gSpread.p - cfg.trust + emoteWide * 0.4;
+      const sway = p.def.sway ?? 1;
+      const ang = (p.def.a + (p.def.hinge ?? 0) * openness) * Math.PI / 180;
       const dist = p.rad.p + flut + emoteKick * Rb * 0.45;   // surprise snaps the shell wide, unsprung
       const px = Math.cos(ang) * dist, py = Math.sin(ang) * dist + emoteDroop * Rb * 0.22;
       ctx.save();
       ctx.translate(px, py);
       ctx.rotate(ang + Math.PI / 2
-        + (state === "working" ? Math.sin(t * 2 + i) * 0.05 : 0)
+        + Math.sin(t * 1.1 + p.jphase) * 0.012 * (sway - 1)
+        + (state === "working" ? Math.sin(t * 2 + i) * 0.05 * sway : 0)
         + eJoy * Math.sin(t * 14 + i * 2.1) * 0.24
         + (Math.cos(ang) >= 0 ? 1 : -1) * emoteDroop * 0.55);
       const s = p.scl.p, pts = shapePts(p.def.sh, s);
