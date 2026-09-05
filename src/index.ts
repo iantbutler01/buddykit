@@ -5,7 +5,7 @@ export { DEFAULT_CONFIG, resolveConfig } from "./config";
 export type { BuddyConfig } from "./config";
 export { registerTheme, getTheme, themeNames, resolveTheme, themeFromAccent, makeTheme, glowToHex } from "./themes";
 export type { BuddyTheme, ThemeInput, ThemeSpec } from "./themes";
-export { FAMILIES, shapePts } from "./families";
+export { FAMILIES, ATTACHED_FAMILIES, isAttachedFamily, shapePts } from "./families";
 export type { FamilyName, PlateDef, ShapeKind } from "./families";
 export { STATES } from "./states";
 export type { BuddyState, BuddyEvent, StateDef } from "./states";
@@ -19,5 +19,5 @@ export { BLOCK_BUILDS, blockSlabs, traceBlock, blockTopY, blockBotY, blockEyeAnc
 export type { BlockBuild, Slab } from "./block";
 export { drawLens } from "./lens";
 export type { LensParams } from "./lens";
-export { QUIRE_FORMS, QUIRE_LENGTHS, QUIRE_ANGLES, QUIRE_ORDER, CODEX_PAGES, quireLeaves, codexPages, traceLeaf, traceSpine, traceQuire, traceCodex, quireTopY, codexTopY, drawQuireBody, drawCodexBody } from "./quire";
-export type { QuireForm, LeafPose, CodexPage } from "./quire";
+export { QUIRE_LENGTHS, QUIRE_ANGLES, QUIRE_ORDER, CODEX_PAGES, quireLeaves, codexPages, traceLeaf, traceSpine, traceQuire, traceCodex, quireTopY, codexTopY, drawQuireBody, drawCodexBody } from "./quire";
+export type { LeafPose, CodexPage } from "./quire";

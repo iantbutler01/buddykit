@@ -3,7 +3,6 @@ import type { CoreShape } from "./cores";
 import type { ThemeInput } from "./themes";
 import type { BlobBody, BlobEyes } from "./blob";
 import type { BlockBuild } from "./block";
-import type { QuireForm } from "./quire";
 import { accessoryRank, type AccessoryName } from "./accessories";
 
 /**
@@ -18,20 +17,19 @@ export interface BuddyConfig {
   /** visual species: geometric emblem, two-eyed blob, or stacked-slab block
    *  (default "emblem"). Everything else — hardness, shell ring, accessories —
    *  mixes freely. */
-  species: "emblem" | "blob" | "block" | "quire";
+  species: "emblem" | "blob" | "block";
   /** orbit the emblem's plate shell around the blob body (default false) */
   shell: boolean;
   /** blob body hardness 0..1 — 0 soft organic blob, 1 rigid faceted core
    *  polyhedron (cfg.core picks the shape); eyes and motion harden with it */
   hardness: number;
-  /** shell family — emblem, and the blob's ring when shell is on (default "tetra") */
+  /** shell family — emblem, and the blob's ring when shell is on (default "tetra").
+   *  "codex" and "fan" are attached shells: pages on a spine, one low lens. */
   family: FamilyName;
   /** body form — blob species (default "round") */
   body: BlobBody;
   /** slab proportions — block species (default "stout") */
   build: BlockBuild;
-  /** quire species: "codex" = a stepped open book (default), "fan" = a centred peacock tail */
-  form: QuireForm;
   /** eye style — blob species (default "googly") */
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
@@ -102,7 +100,6 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   family: "tetra",
   body: "round",
   build: "stout",
-  form: "codex",
   eyes: "googly",
   core: "sphere",
   accessories: [],

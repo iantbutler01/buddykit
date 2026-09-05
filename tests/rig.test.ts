@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Spring } from "../src/spring";
-import { FAMILIES, shapePts } from "../src/families";
+import { FAMILIES, shapePts, isAttachedFamily, type FamilyName } from "../src/families";
 import { STATES } from "../src/states";
 import { getTheme, registerTheme, themeNames } from "../src/themes";
 
@@ -31,6 +31,7 @@ describe("Spring", () => {
 describe("families (grammar invariants)", () => {
   it("every family has plates and every plate resolves a shape", () => {
     for (const [name, defs] of Object.entries(FAMILIES)) {
+      if (isAttachedFamily(name as FamilyName)) continue;
       expect(defs.length, name).toBeGreaterThanOrEqual(3);
       for (const d of defs) {
         const pts = shapePts(d.sh, 1);
@@ -226,7 +227,7 @@ describe("block species", () => {
   });
 });
 
-describe("quire species", () => {
+describe("attached shells (codex, fan)", () => {
   it("the fan is a centred peacock tail: five leaves mirror-symmetric about the spine", async () => {
     const { quireLeaves, quireTopY, QUIRE_SPINE, QUIRE_ORDER } = await import("../src/quire");
     const leaves = quireLeaves(100, 1, [0, 0, 0]);
@@ -259,9 +260,12 @@ describe("quire species", () => {
     expect(codexTopY(100, pages)).toBeLessThan(QUIRE_SPINE.top * 100);
   });
 
-  it("config accepts species quire with a form", async () => {
+  it("codex and fan are attached emblem shells with no orbiting plates", async () => {
+    const { FAMILIES, ATTACHED_FAMILIES, isAttachedFamily } = await import("../src/families");
     const { resolveConfig } = await import("../src/config");
-    expect(resolveConfig({ species: "quire" }).form).toBe("codex");
-    expect(resolveConfig({ species: "quire", form: "fan" }).form).toBe("fan");
+    expect(ATTACHED_FAMILIES).toEqual(["codex", "fan"]);
+    for (const f of ATTACHED_FAMILIES) { expect(isAttachedFamily(f)).toBe(true); expect(FAMILIES[f]).toEqual([]); }
+    expect(isAttachedFamily("tetra")).toBe(false);
+    expect(resolveConfig({ family: "codex" }).family).toBe("codex");
   });
 });

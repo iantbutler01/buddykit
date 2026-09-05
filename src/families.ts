@@ -13,7 +13,14 @@ export interface PlateDef {
   sh: ShapeKind;
 }
 
-export type FamilyName = "tetra" | "octa" | "ring" | "petal" | "shard" | "prism";
+export type FamilyName = "tetra" | "octa" | "ring" | "petal" | "shard" | "prism" | "codex" | "fan";
+
+/** Attached shells: pages fixed to a spine instead of plates orbiting the core
+ *  (geometry in quire.ts). They carry no plate defs; the rig draws them whole. */
+export const ATTACHED_FAMILIES: readonly FamilyName[] = ["codex", "fan"];
+export function isAttachedFamily(f: FamilyName): boolean {
+  return ATTACHED_FAMILIES.includes(f);
+}
 
 export const FAMILIES: Record<FamilyName, PlateDef[]> = {
   tetra: [
@@ -32,6 +39,8 @@ export const FAMILIES: Record<FamilyName, PlateDef[]> = {
     { a: 200, d: 1.03, s: 1.05, sh: "kite" },
   ],
   prism: [...Array(6)].map((_, i) => ({ a: i * 60 - 90, d: 1.05, s: 0.95, sh: "bar" as const })),
+  codex: [],
+  fan: [],
 };
 
 /** Crisp graphic shapes — pointed OUT, flat toward core. Local coords, +y toward core. */

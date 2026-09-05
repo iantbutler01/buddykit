@@ -1,17 +1,15 @@
 /**
- * The quire species — pages around a dark spine with one aperture lens set
- * low in the spine. A quire is a gathering of folded pages: the being shows
- * layering rather than a face, and its attention is visible in how the pages
- * gather. Two symmetric forms: "codex", a stepped open book (default), and
- * "fan", a centred peacock tail of five leaves. Designed by Claude with Codex
- * Astra (2026-09-05) and shaped by Ian's feedback: symmetric, pages attached
- * to the spine, hairline outlines, no red.
+ * Attached emblem shells — pages fixed to a dark spine with one aperture lens
+ * set low in the spine. "codex" is a stepped open book, "fan" a centred
+ * peacock tail of five leaves; both symmetric. The emblem's own spread drives
+ * how far the pages open, so trust posture, states and emotes read the same
+ * way they do on the orbiting shells. Designed by Claude with Codex Astra
+ * (2026-09-05) and shaped by Ian's feedback: symmetric, attached, hairline
+ * outlines, no red — and, his call, a shell family rather than a species.
  */
 import type { PathTarget } from "./blob";
 
-/** codex = a stepped open book (default); fan = a centred peacock tail of leaves. Both symmetric. */
-export type QuireForm = "codex" | "fan";
-export const QUIRE_FORMS: QuireForm[] = ["codex", "fan"];
+
 
 /** Fan rest pose: a peacock tail, symmetric about the spine. Angles clockwise from up, degrees; lengths in r. */
 export const QUIRE_LENGTHS = [1.7, 1.95, 2.1, 1.95, 1.7] as const;
