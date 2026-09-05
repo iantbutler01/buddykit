@@ -106,7 +106,8 @@
         <button class="bu" data-v="sentinel">sentinel</button>
       </div>
       <div class="g"><span class="l">Hand</span>
-        <button class="hd" data-v="auto" aria-pressed="true">auto</button>
+        <button class="hd" data-v="both" aria-pressed="true">both</button>
+        <button class="hd" data-v="auto">auto</button>
         <button class="hd" data-v="left">left</button>
         <button class="hd" data-v="right">right</button>
       </div>
@@ -404,8 +405,8 @@
     { name: "Basalt",   cls: "Sentinel · visor, shell ring, grave",  cfg: { species: "block", build: "sentinel", eyes: "slit", shell: true, family: "petal", theme: "#5b5763", gravity: 0.85, gradient: 0.5, seed: 19 } },
     { name: "Oracle",   cls: "Construct · d20 core, one lens",        cfg: { species: "blob", body: "round", eyes: "lens", hardness: 1, core: "d20", shell: true, family: "tetra", theme: "sumi", gravity: 0.9, gradient: 0.4, seed: 77 } },
     { name: "Quiet",    cls: "Blob · slit eyes, gravity 0.7",         cfg: { species: "blob", body: "pebble", eyes: "slit", theme: "#5b5763", gravity: 0.7, gradient: 0.3, seed: 31 } },
-    { name: "Quire",    cls: "Claude × Astra · a handed fan, one lens", cfg: { species: "quire", hand: "right", theme: "sumi", gravity: 0.7, seed: 11 } },
-    { name: "Folio",    cls: "Quire · left hand, ember, lighter",     cfg: { species: "quire", hand: "left", theme: "ember", gravity: 0.35, seed: 6 } },
+    { name: "Quire",    cls: "Claude × Astra · open codex, one lens",  cfg: { species: "quire", hand: "both", theme: "sumi", gravity: 0.7, seed: 11 } },
+    { name: "Folio",    cls: "Quire · left-handed, ember, lighter",    cfg: { species: "quire", hand: "left", theme: "ember", gravity: 0.35, seed: 6 } },
   ];
   const roster = document.getElementById("roster");
   for (const being of ROSTER) {

@@ -19,5 +19,5 @@ export { BLOCK_BUILDS, blockSlabs, traceBlock, blockTopY, blockBotY, blockEyeAnc
 export type { BlockBuild, Slab } from "./block";
 export { drawLens } from "./lens";
 export type { LensParams } from "./lens";
-export { QUIRE_LENGTHS, QUIRE_ANGLES, QUIRE_ORDER, quireLeaves, traceLeaf, traceSpine, traceQuire, quireTopY, drawQuireBody } from "./quire";
-export type { QuireHand, LeafPose } from "./quire";
+export { QUIRE_LENGTHS, QUIRE_ANGLES, QUIRE_ORDER, CODEX_PAGES, quireLeaves, codexPages, traceLeaf, traceSpine, traceQuire, traceCodex, quireTopY, codexTopY, drawQuireBody, drawCodexBody } from "./quire";
+export type { QuireHand, HandSign, LeafPose, CodexPage } from "./quire";

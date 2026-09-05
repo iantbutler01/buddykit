@@ -30,7 +30,8 @@ export interface BuddyConfig {
   body: BlobBody;
   /** slab proportions — block species (default "stout") */
   build: BlockBuild;
-  /** which side the fan falls to — quire species ("auto" = from the seed) */
+  /** quire species: "both" = symmetric open codex (default); "left"/"right" fan
+   *  to one side; "auto" = a side from the seed */
   hand: QuireHand;
   /** eye style — blob species (default "googly") */
   eyes: BlobEyes;
@@ -102,7 +103,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   family: "tetra",
   body: "round",
   build: "stout",
-  hand: "auto",
+  hand: "both",
   eyes: "googly",
   core: "sphere",
   accessories: [],

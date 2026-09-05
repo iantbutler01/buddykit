@@ -247,7 +247,20 @@ describe("quire species", () => {
 
   it("config accepts species quire and hand", async () => {
     const { resolveConfig } = await import("../src/config");
-    expect(resolveConfig({ species: "quire" }).hand).toBe("auto");
+    expect(resolveConfig({ species: "quire" }).hand).toBe("both");
+    const { codexPages, codexTopY, QUIRE_SPINE } = await import("../src/quire");
+    const pages = codexPages(100, 1, [0, 0, 0]);
+    expect(pages).toHaveLength(6);
+    // the codex is mirror-symmetric at rest: each left page mirrors its right twin
+    for (const pg of pages.filter((q) => q.side === -1)) {
+      const twin = pages.find((q) => q.side === 1 && q.index === pg.index)!;
+      pg.pts.forEach((pt, i) => { expect(pt[0]).toBeCloseTo(-twin.pts[i][0], 9); expect(pt[1]).toBeCloseTo(twin.pts[i][1], 9); });
+    }
+    // outermost pages are the tallest and rise above the spine
+    expect(codexTopY(100, pages)).toBeLessThan(QUIRE_SPINE.top * 100);
+    // shut (spread 0) pages stand vertical: inner and outer bottom corners share a y
+    const shut = codexPages(100, 0, [0, 0, 0])[0];
+    expect(shut.pts[0][1]).toBeCloseTo(shut.pts[1][1], 9);
     expect(resolveConfig({ species: "quire", hand: "left" }).hand).toBe("left");
   });
 });
