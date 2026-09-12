@@ -237,6 +237,14 @@ describe("block species", () => {
     expect(posture({ ...base, state: "needs_you", gravity: 1 }).armR.sh).toBeGreaterThan(90);
     expect(posture({ ...base, state: "needs_you" }).armR.sh).toBe(172);
     expect(posture({ ...base, state: "idle" })).toEqual(REST_POSE);
+    // the damper: a settled ask keeps the state and loses the shouting — arm most of the way
+    // down, no wave — and a fresh one (attention 1, the default) is the full pose
+    const settled = posture({ ...base, state: "needs_you", attention: 0.15 });
+    expect(settled.armR.sh).toBeLessThan(wave.armR.sh);
+    expect(settled.armR.sh).toBeLessThan(REST_POSE.armR.sh + 0.2 * (wave.armR.sh - REST_POSE.armR.sh));
+    expect(gestures({ ...base, state: "needs_you", attention: 0.15 }).wave).toBeCloseTo(0.15, 5);
+    expect(gestures({ ...base, state: "needs_you", attention: 0 }).wave).toBe(0);
+    expect(posture({ ...base, state: "needs_you", attention: 1 })).toEqual(wave);
     // a wave through the rig: the right hand ends up above the shoulder
     const rig = new LimbRig();
     let pose = REST_POSE;

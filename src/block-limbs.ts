@@ -94,8 +94,10 @@ export interface PoseInput {
   p: number;
   /** flare in progress */
   flare: boolean;
-  /** needs_you pulse 0..1 */
+  /** needs_you pulse 0..1, already scaled by the damper */
   attn: number;
+  /** the damper on needs_you 0..1 (1 when absent): how fresh the ask is */
+  attention?: number;
   /** 0..1 — a grave block gestures less */
   gravity: number;
 }
@@ -103,6 +105,8 @@ export interface PoseInput {
 /** The posture the springs should carry the joints toward. */
 export function posture(i: PoseInput): BlockPose {
   let pose = withDefaults(STATE_POSES[i.state]);
+  // a settled ask holds a quieter version of the pose: arm coming down, head levelling
+  if (i.state === "needs_you") pose = mix(withDefaults(STATE_POSES.idle), pose, i.attention ?? 1);
   if (i.flare) pose = mix(pose, withDefaults(EMOTE_POSES.flare!), 1);
   if (i.emote && EMOTE_POSES[i.emote]) pose = mix(pose, withDefaults(EMOTE_POSES[i.emote]!), i.env);
   if (i.emote === "joy") pose.hop = Math.abs(Math.sin(i.p * Math.PI * 2)) * 0.16 * i.env;
@@ -122,7 +126,7 @@ export interface Gestures { wave: number; pump: number; march: number; stomp: nu
 export function gestures(i: PoseInput): Gestures {
   const g = 1 - 0.5 * i.gravity;
   return {
-    wave: i.state === "needs_you" ? g : 0,
+    wave: i.state === "needs_you" ? g * (i.attention ?? 1) : 0,
     pump: i.state === "working" ? 1 : 0,
     march: i.state === "working" ? g : 0,
     stomp: i.emote === "angry" ? i.env : 0,

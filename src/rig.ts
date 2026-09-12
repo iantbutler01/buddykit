@@ -10,7 +10,12 @@
 import { Spring } from "./spring";
 import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts, shapeDetail, shapeAccent } from "./families";
-import { STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
+import { type StateDef, STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
+
+function mixState(a: StateDef, b: StateDef, w: number): StateDef {
+  const l = (x: number, y: number) => x + (y - x) * w;
+  return { spread: l(a.spread, b.spread), eye: l(a.eye, b.eye), eyeOpen: l(a.eyeOpen, b.eyeOpen), bob: l(a.bob, b.bob), tilt: l(a.tilt, b.tilt) };
+}
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
 import { traceBlob, blobTopR, blobBotR } from "./blob";
 import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes, applyHeadTransform } from "./block";
@@ -29,6 +34,13 @@ export interface BuddyMountOptions extends Partial<BuddyConfig> {
 export interface BuddyHandle {
   setState(s: BuddyState): void;
   getState(): BuddyState;
+  /**
+   * The damper on needs_you, 0..1. At 1 the ask is fresh: the full wave, hop and double pulse.
+   * As the app lets it decay the pose settles toward idle — arm down, eyes normal — while the
+   * state stays needs_you, so loud means "just happened" and quiet means "still there". Working
+   * and listening are not damped: they mirror live activity.
+   */
+  setAttention(level: number): void;
   fire(e: BuddyEvent): void;
   /** live-update any part of the config (identity or tuning) */
   configure(partial: Partial<BuddyConfig>): void;
@@ -98,6 +110,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   let t = 0, last = performance.now();
   let nextBlink = 2.5, nextGlance = 1.8, nextTilt = 4;
   let pulseT = 0, ticks: number[] = [], flareRing = -1;
+  let attention = 1;
   let emote: Exclude<BuddyEvent, "flare"> | null = null, emoteT = 0;
   let raf = 0, destroyed = false, visible = true;
   interface Mote { x: number; y: number; vy: number; r: number; age: number; life: number; ph: number; col: string; }
@@ -185,7 +198,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     t += dt;
 
     const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2 + 4 * DPR;
-    const T = theme, S = STATES[state];
+    const T = theme;
+    // needs_you reads through the damper: its expression is the idle pose blended toward the
+    // full ask by `attention`, so a settled ask keeps the state and loses the shouting.
+    const S: StateDef = state === "needs_you" ? mixState(STATES.idle, STATES.needs_you, attention) : STATES[state];
     const R = Math.min(W, H) * 0.16 * cfg.scale;
 
     // ---- emote envelope: short expressions layered over the state ----
@@ -276,8 +292,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     let attn = 0;
     if (state === "needs_you") {
       pulseT += dt; const ph = pulseT % 1.7;
-      attn = ph < 0.14 ? Math.sin(ph / 0.14 * Math.PI)
-        : ph > 0.26 && ph < 0.4 ? Math.sin((ph - 0.26) / 0.14 * Math.PI) : 0;
+      attn = (ph < 0.14 ? Math.sin(ph / 0.14 * Math.PI)
+        : ph > 0.26 && ph < 0.4 ? Math.sin((ph - 0.26) / 0.14 * Math.PI) : 0) * attention;
     } else pulseT = 0;
 
     // working ticks
@@ -416,7 +432,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const squash = 0.5 * ((bodyY.v * -0.0022) + emoteSquash + (state === "away" ? -0.1 : 0));
       const pose = limbs.update({
         state, emote, env: emote ? Math.sin(emoteP * Math.PI) : 0, p: emoteP,
-        flare: flareRing >= 0, attn, gravity: grav,
+        flare: flareRing >= 0, attn, attention, gravity: grav,
       }, dt0, t);
       ctx.translate(0, -pose.hop * bodyR);
       const bodyPath = new Path2D();
@@ -810,6 +826,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   return {
     setState,
     getState: () => state,
+    setAttention(level: number) {
+      attention = Math.max(0, Math.min(1, level));
+      if (reduced) renderOnce();
+    },
     fire(e: BuddyEvent) {
       if (e === "flare") {
         spinAccum += Math.PI * 2;
