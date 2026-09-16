@@ -236,11 +236,13 @@ export function drawAccessory(
     ctx.save();
     ctx.clip(g.clipCloth);
     ctx.fillStyle = co ?? g.dark;
-    ctx.fillRect(a.x - u * 1.6, a.y, u * 3.2, d + u * 1.6);
+    // the wrap is a collar, not a coat: as wide as the neck it goes round and only
+    // as deep as the collar zone, or the clip simply paints the whole torso
+    ctx.fillRect(a.x - u * 0.62, a.y, u * 1.24, d);
     ctx.restore();
     // knot + trailing tails on the right
     ctx.fillStyle = co ?? g.dark;
-    const kx = a.x + u * 0.8, ky = a.y + d * 0.29;
+    const kx = a.x + u * 0.42, ky = a.y + d * 0.42;
     ctx.beginPath(); ctx.arc(kx, ky, u * 0.11, 0, 7); ctx.fill();
     const flap = Math.sin(t * 2.1) * 0.08;
     for (const [ang, len] of [[0.55 + flap, 0.34], [0.95 + flap * 0.6, 0.28]] as [number, number][]) {
