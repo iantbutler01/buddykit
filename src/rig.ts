@@ -17,11 +17,11 @@ function mixState(a: StateDef, b: StateDef, w: number): StateDef {
   return { spread: l(a.spread, b.spread), eye: l(a.eye, b.eye), eyeOpen: l(a.eyeOpen, b.eyeOpen), bob: l(a.bob, b.bob), tilt: l(a.tilt, b.tilt) };
 }
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
-import { traceBlob, blobTopR, blobBotR } from "./blob";
-import { traceBlock, blockTopY, blockBotY, blockEyeAnchor, drawBlockBody, drawBlockEyes, applyHeadTransform } from "./block";
+import { traceBlob, blobAnchors, blobTopR, blobBotR } from "./blob";
+import { traceBlock, blockAnchors, blockEyeAnchor, traceBlockTorso, traceBlockHead, drawBlockBody, drawBlockEyes, applyHeadTransform } from "./block";
 import { LimbRig } from "./block-limbs";
 import { drawLens } from "./lens";
-import { drawAccessory, accessoryLayer } from "./accessories";
+import { drawAccessory, accessoryLayer, accessoryRidesHead, type AccessoryGeom } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
 export interface BuddyMountOptions extends Partial<BuddyConfig> {
@@ -437,20 +437,27 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.translate(0, -pose.hop * bodyR);
       const bodyPath = new Path2D();
       traceBlock(bodyPath, cfg.build, bodyR, squash, grav, pose);
-      const anchor = blockEyeAnchor(cfg.build, bodyR, squash);
+      const eyeBox = blockEyeAnchor(cfg.build, bodyR, squash);
       const exOff = eyeX.p * bodyR * 0.08, eyOff = (eyeY.p + emoteGazeY) * bodyR * 0.08;
       const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
-      const eyeSize = anchor.headH * 0.42 * Math.max(0.4, wide);
-      const geom = {
-        topY: blockTopY(cfg.build, bodyR, squash),
-        botY: blockBotY(cfg.build, bodyR, squash),
-        bodyR, t, dark: T.coreDisc, accent: T.accent,
-        bodyPath, colors: cfg.accessoryColors,
-        eyeCX: anchor.cx * cfg.eyeSpacing,
-        eyeCY: anchor.cy - anchor.headH * 0.5 * (cfg.eyeRaise - 1),
-        eyeOX: cfg.eyeShift * bodyR * 0.3 + exOff,
-        eyeOY: eyOff,
-        ringR: eyeSize * 0.62,
+      const eyeSize = eyeBox.headH * 0.42 * Math.max(0.4, wide);
+      const eye = {
+        cx: eyeBox.cx * cfg.eyeSpacing,
+        cy: eyeBox.cy - eyeBox.headH * 0.5 * (cfg.eyeRaise - 1),
+        ox: cfg.eyeShift * bodyR * 0.3 + exOff,
+        oy: eyOff,
+      };
+      // cloth clips to the torso and hair to the head — the whole silhouette
+      // would run a scarf down the legs
+      const clipCloth = new Path2D();
+      traceBlockTorso(clipCloth, cfg.build, bodyR, squash, grav);
+      const clipHead = new Path2D();
+      traceBlockHead(clipHead, cfg.build, bodyR, squash, grav);
+      const geom: AccessoryGeom = {
+        anchors: blockAnchors(cfg.build, bodyR, squash, grav, eye),
+        eyeCX: eye.cx, ringR: eyeSize * 0.62,
+        t, dark: T.coreDisc, accent: T.accent,
+        clipCloth, clipHead, colors: cfg.accessoryColors,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
       // glow halo + a real drop shadow: a block is always an object
@@ -467,10 +474,16 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         bevel: 0.55 + 0.45 * cfg.gradient,
         gravity: grav,
       }, pose);
-      // eyes and accessories ride the head: hats, glasses and headsets tilt with it
+      // cloth is worn on the torso and stays put; only head-worn accessories
+      // ride the head transform, alongside the eyes
+      for (const a of cfg.accessories) {
+        if (accessoryLayer(a) !== "behind" && !accessoryRidesHead(a)) drawAccessory(ctx, a, geom, DPR);
+      }
       ctx.save();
       applyHeadTransform(ctx, figure);
-      for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
+      for (const a of cfg.accessories) {
+        if (accessoryLayer(a) === "back" && accessoryRidesHead(a)) drawAccessory(ctx, a, geom, DPR);
+      }
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
         const style: Parameters<typeof drawBlockEyes>[1]["style"] =
@@ -478,8 +491,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         const lensIris = (1 + attn * 0.22) * (1 + eJoy * 0.18 * Math.sin(t * 16)) * (1 - 0.45 * eSad - 0.35 * eTired - 0.45 * eAngry);
         drawBlockEyes(ctx, {
           style,
-          cx: geom.eyeCX, cy: geom.eyeCY, ox: geom.eyeOX, oy: geom.eyeOY,
-          headW: anchor.headW, size: eyeSize,
+          cx: eye.cx, cy: eye.cy, ox: eye.ox, oy: eye.oy,
+          headW: eyeBox.headW, size: eyeSize,
           ap, closed: state === "away" || ap < 0.12,
           gx: eyeX.p, gy: eyeY.p + emoteGazeY,
           slant: emoteSlant, rot: style === cfg.eyes ? (cfg.eyeAngle * Math.PI) / 180 : 0,
@@ -487,8 +500,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           lens: { iris: Math.max(0.05, lensIris), T, G, DPR },
         });
       }
-      ctx.restore();
       for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
+      ctx.restore();
       ctx.restore();
       if (!reduced) raf = requestAnimationFrame(frame);
       return;
@@ -526,16 +539,20 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const coreOutline = CORES[cfg.core].outline;
       const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
       const coreBot = coreOutline ? Math.max(...coreOutline.map((p) => p[1])) : 1;
-      const geom = {
-        topY: -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard),
-        botY: blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard,
-        bodyR, t, dark: T.coreDisc, accent: T.accent,
-        bodyPath, colors: cfg.accessoryColors,
-        eyeCX: bodyR * EYEP.sx * cfg.eyeSpacing,
-        eyeCY: -bodyR * EYEP.sy * cfg.eyeRaise,
-        eyeOX: shiftX + exOff * EYEP.f,
-        eyeOY: eyOff * EYEP.f,
-        ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
+      const topY = -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard);
+      const botY = blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard;
+      const eye = {
+        cx: bodyR * EYEP.sx * cfg.eyeSpacing,
+        cy: -bodyR * EYEP.sy * cfg.eyeRaise,
+        ox: shiftX + exOff * EYEP.f,
+        oy: eyOff * EYEP.f,
+      };
+      // one soft body: cloth and hair both clip to the whole silhouette
+      const geom: AccessoryGeom = {
+        anchors: blobAnchors(bodyR, topY, botY, eye),
+        eyeCX: eye.cx, ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
+        t, dark: T.coreDisc, accent: T.accent,
+        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
 
@@ -609,7 +626,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // the iris (attention and joy widen, sad/tired/angry narrow).
           const er = bodyR * 0.34 * Math.max(0.4, wide);
           ctx.save();
-          ctx.translate(geom.eyeOX, geom.eyeCY + geom.eyeOY);
+          ctx.translate(eye.ox, eye.cy + eye.oy);
           if (closed) { sleepArc(restR * 1.1); ctx.restore(); }
           else {
             const iris = Math.max(0.05, (1 + attn * 0.22) * (1 + eJoy * 0.18 * Math.sin(t * 16)) * (1 - 0.45 * eSad - 0.35 * eTired - 0.45 * eAngry));
@@ -621,7 +638,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // Overexaggerated by default — the eyes are the only feature, so they carry.
           const er = bodyR * 0.3 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            const exc = sgn * eye.cx + eye.ox, eyc = eye.cy + eye.oy;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR); ctx.restore(); continue; }
@@ -647,7 +664,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           const ew = bodyR * (0.151 * soft + 0.23 * hard) * wide;
           const rr = (ew / 2) * soft + bodyR * 0.06 * wide * hard;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            const exc = sgn * eye.cx + eye.ox, eyc = eye.cy + eye.oy;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.95); ctx.restore(); continue; }
@@ -665,7 +682,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           const er = bodyR * 0.115 * wide;
           const rr = er * (1 - hard * 0.45);
           for (const sgn of [-1, 1]) {
-            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            const exc = sgn * eye.cx + eye.ox, eyc = eye.cy + eye.oy;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
@@ -687,7 +704,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // rotate it or a horizontal-slit buddy gets sideways frowns
           const restRot = eyeStyle === cfg.eyes ? eyeRot : 0;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            const exc = sgn * eye.cx + eye.ox, eyc = eye.cy + eye.oy;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
@@ -705,7 +722,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // hollow rounds — curious robot; pupil-less but alive via saccades
           const er = bodyR * 0.125 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            const exc = sgn * eye.cx + eye.ox, eyc = eye.cy + eye.oy;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
@@ -721,7 +738,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
           // glint: original dark pupils + hot sparks
           const er = bodyR * 0.155 * wide;
           for (const sgn of [-1, 1]) {
-            const exc = sgn * geom.eyeCX + geom.eyeOX, eyc = geom.eyeCY + geom.eyeOY;
+            const exc = sgn * eye.cx + eye.ox, eyc = eye.cy + eye.oy;
             ctx.save();
             ctx.translate(exc, eyc);
             if (closed) { sleepArc(restR * 0.7); ctx.restore(); continue; }

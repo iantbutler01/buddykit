@@ -289,3 +289,116 @@ describe("codex and fan shells", () => {
     expect(resolveConfig({ core: "spine", family: "fan" }).core).toBe("spine");
   });
 });
+
+describe("accessory anchors", () => {
+  const EXPECTED: Record<string, string> = {
+    none: "body",
+    antenna: "headTop", sprout: "headTop", bow: "headTop", halo: "headTop", crown: "headTop",
+    hardhat: "headTop", cap: "headTop", ears: "headTop", bunny: "headTop", toque: "headTop",
+    mortarboard: "headTop", tophat: "headTop", beanie: "headTop", santa: "headTop",
+    witch: "headTop", party: "headTop", mane: "headTop",
+    headset: "headSide",
+    glasses: "face", monocle: "face", sunglasses: "face",
+    scarf: "neck", bowtie: "neck", stethoscope: "neck",
+    shirt: "chest", hoodie: "chest", tie: "chest", badge: "chest",
+    toolbelt: "waist",
+    cape: "body",
+  };
+
+  async function blockPlaces(build: "stout" | "tall" | "wide" | "mini" | "long" | "sentinel" = "stout", r = 100) {
+    const { blockAnchors, blockEyeAnchor, blockSlabs, blockBotY } = await import("../src/block");
+    const eye = blockEyeAnchor(build, r);
+    return {
+      anchors: blockAnchors(build, r, 0, 0, { cy: eye.cy, ox: 0, oy: 0 }),
+      slabs: blockSlabs(build, r),
+      footY: blockBotY(build, r),
+    };
+  }
+
+  it("pins every accessory to a named place on the body", async () => {
+    const { ACCESSORIES, accessoryAnchor } = await import("../src/accessories");
+    for (const a of ACCESSORIES) expect(accessoryAnchor(a), a).toBe(EXPECTED[a]);
+    // and the table covers the roster exactly — a new accessory must choose a place
+    expect(ACCESSORIES.slice().sort()).toEqual(Object.keys(EXPECTED).sort());
+  });
+
+  it("only head-worn accessories ride the head", async () => {
+    const { ACCESSORIES, accessoryAnchor, accessoryRidesHead } = await import("../src/accessories");
+    for (const a of ACCESSORIES) {
+      const head = ["headTop", "headSide", "face"].includes(accessoryAnchor(a));
+      expect(accessoryRidesHead(a), a).toBe(head);
+    }
+  });
+
+  it("puts the block's places on the block's own parts", async () => {
+    const { anchors, slabs, footY } = await blockPlaces();
+    const [torso, head, crown] = slabs;
+    const headBot = head.y + head.h, torsoBot = torso.y + torso.h;
+    expect(anchors.headTop.y).toBe(crown.y);                    // hats sit on the crown
+    expect(anchors.headTop.r).toBeCloseTo(Math.max(crown.w, head.w) * 0.645, 6);
+    expect(anchors.headSide.x).toBeCloseTo(head.w / 2 * 0.98, 6);   // cups straddle the head edge
+    expect(anchors.headSide.y).toBeGreaterThan(head.y);
+    expect(anchors.headSide.y).toBeLessThan(headBot);
+    expect(anchors.face.y).toBeGreaterThan(head.y);             // glasses land on the face
+    expect(anchors.face.y).toBeLessThan(headBot);
+    expect(anchors.face.r).toBeCloseTo(head.w / 2, 6);          // temples reach the head's edge
+    expect(anchors.neck.y).toBe(torso.y);                       // the collar is the top of the torso
+    expect(anchors.chest.y).toBeGreaterThan(torso.y);           // the chest is the upper torso
+    expect(anchors.chest.y).toBeLessThan(torso.y + torso.h * 0.5);
+    expect(anchors.waist.y).toBeGreaterThan(torso.y + torso.h * 0.5);
+    expect(anchors.waist.y).toBeLessThan(torsoBot);
+    for (const place of ["neck", "chest", "waist"] as const) {
+      expect(anchors[place].r, place).toBeCloseTo(torso.w / 2, 6);
+    }
+    // the cape covers shoulders to feet
+    expect(anchors.body.y - anchors.body.r * 0.18).toBeCloseTo(torso.y, 6);
+    expect(anchors.body.y + anchors.body.r * 0.98).toBeCloseTo(footY, 6);
+  });
+
+  it("keeps cloth off the legs — the bug: cloth measured from the figure's bottom edge", async () => {
+    const { anchors, slabs, footY } = await blockPlaces();
+    const torsoBot = slabs[0].y + slabs[0].h;
+    for (const place of ["neck", "chest", "waist"] as const) {
+      expect(anchors[place].y, place).toBeGreaterThanOrEqual(slabs[0].y);
+      expect(anchors[place].y + anchors[place].drop, place).toBeLessThanOrEqual(torsoBot + 1e-9);
+    }
+    expect(torsoBot).toBeLessThan(footY);   // there really are legs below the cloth
+    // a collar has no room above it on a block: the head starts immediately
+    expect(anchors.neck.rise).toBe(0);
+  });
+
+  it("keeps the places in head-to-toe order on every build", async () => {
+    const { BLOCK_BUILDS } = await import("../src/block");
+    for (const build of BLOCK_BUILDS) {
+      const { anchors, footY } = await blockPlaces(build);
+      const order = [anchors.headTop.y, anchors.face.y, anchors.neck.y, anchors.chest.y, anchors.waist.y, footY];
+      for (let i = 1; i < order.length; i++) expect(order[i], `${build} ${i}`).toBeGreaterThan(order[i - 1]);
+    }
+  });
+
+  it("scales its places with the build rather than with a constant", async () => {
+    const wide = (await blockPlaces("wide")).anchors;
+    const stout = (await blockPlaces("stout")).anchors;
+    const sentinel = (await blockPlaces("sentinel")).anchors;
+    expect(wide.headTop.r).toBeGreaterThan(stout.headTop.r);     // a wide head wears a wide hat
+    expect(sentinel.headTop.r).toBeLessThan(stout.headTop.r);
+    expect(wide.chest.r).toBeGreaterThan(sentinel.chest.r);      // a wide torso wears wide cloth
+  });
+
+  it("gives the blob the same places, measured against its chin", async () => {
+    const { blobAnchors } = await import("../src/blob");
+    const r = 100, topY = -100, botY = 100;
+    const a = blobAnchors(r, topY, botY, { cy: -18, ox: 0, oy: 0 });
+    expect(a.headTop.y).toBe(topY);
+    expect(a.face.y).toBe(-18);
+    expect(a.neck.y).toBeCloseTo(botY * 0.44, 6);
+    expect(a.chest.y).toBeCloseTo(botY * 0.5, 6);
+    expect(a.waist.y).toBeCloseTo(botY * 0.7, 6);
+    for (const place of ["neck", "chest", "waist"] as const) {
+      // a blob is one body: its cloth may hang to the chin, and no further
+      expect(a[place].y + a[place].drop, place).toBeCloseTo(botY, 6);
+      expect(a[place].r, place).toBe(r);
+    }
+    expect(a.neck.rise).toBeGreaterThan(0);   // a blob has face above its collar; a block does not
+  });
+});

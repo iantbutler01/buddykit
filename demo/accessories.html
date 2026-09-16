@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>buddykit — accessory contact sheet</title>
+<style>
+  :root { --paper: #f7f2ea; --ink: #291f16; --ink-soft: #6b5d4d; --hairline: #e0d5c4; --card: #fffdf9;
+          --sys: system-ui, -apple-system, sans-serif; --mono: ui-monospace, Menlo, monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 var(--sys); }
+  .wrap { padding: 1.4rem; }
+  h1 { font-size: 1.1rem; margin: 0 0 .1rem; }
+  h2 { font-size: .95rem; margin: 1.6rem 0 .6rem; font-family: var(--mono); }
+  p.sub { margin: 0; color: var(--ink-soft); font-size: .8rem; }
+  .grid { display: grid; grid-template-columns: repeat(6, 256px); gap: .5rem; }
+  .cell { background: var(--card); border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
+  .cell canvas { display: block; width: 256px; height: 256px; }
+  .cell b { display: block; font: 600 .72rem var(--mono); padding: .25rem .5rem .35rem; border-top: 1px solid var(--hairline); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>buddykit — accessory contact sheet</h1>
+  <p class="sub">Every accessory on every species that wears one, 256px, rendered by the library's own rig (reduced motion, idle).</p>
+  <div id="sheet"></div>
+</div>
+<script type="module">
+  import { mountBuddy } from "../src/index.ts";
+  import { ACCESSORIES } from "../src/accessories.ts";
+
+  const SPECIES = [
+    { id: "block", label: "block (stout, googly)", cfg: { species: "block", build: "stout", eyes: "googly" } },
+    { id: "blob", label: "blob (round, googly)", cfg: { species: "blob", body: "round", eyes: "googly" } },
+  ];
+
+  // every block build against one accessory per anchor — proof the places
+  // scale with the body, not with a constant
+  const BUILDS = ["stout", "tall", "wide", "mini", "long", "sentinel"];
+  const PER_ANCHOR = ["cap", "headset", "glasses", "scarf", "tie", "toolbelt"];
+
+  const sheet = document.getElementById("sheet");
+  const params = new URLSearchParams(location.search);
+  const only = params.get("species");
+  // a state with a head tilt (listening) shows what rides the head and what does not
+  const state = params.get("state");
+
+  function section(label, cells) {
+    const h = document.createElement("h2");
+    h.textContent = label;
+    sheet.append(h);
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    sheet.append(grid);
+    for (const { caption, cfg } of cells) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const c = document.createElement("canvas");
+      const b = document.createElement("b");
+      b.textContent = caption;
+      cell.append(c, b);
+      grid.append(cell);
+      const buddy = mountBuddy(c, { theme: "ember", seed: 42, reducedMotion: true, dprCap: 2, ...cfg });
+      if (state) buddy.setState(state);
+    }
+  }
+
+  if (only === "builds") {
+    for (const build of BUILDS) {
+      section(`block · ${build}`, PER_ANCHOR.map((acc) => ({
+        caption: `${build} · ${acc}`,
+        cfg: { species: "block", build, eyes: "googly", accessories: [acc] },
+      })));
+    }
+  } else {
+    for (const sp of SPECIES.filter((s) => !only || s.id === only)) {
+      section(sp.label, ACCESSORIES.map((acc) => ({
+        caption: `${sp.id} · ${acc}`,
+        cfg: { ...sp.cfg, accessories: [acc] },
+      })));
+    }
+  }
+  document.body.dataset.ready = "1";
+</script>
+</body>
+</html>

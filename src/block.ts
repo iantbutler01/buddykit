@@ -10,6 +10,7 @@
 import type { PathTarget } from "./blob";
 import { drawLens, type LensParams } from "./lens";
 import { REST_POSE, type BlockPose, type ArmPose, type LegPose } from "./block-limbs";
+import type { Anchor, BodyAnchors, EyeLine } from "./anchors";
 
 export type BlockBuild = "stout" | "tall" | "wide" | "mini" | "long" | "sentinel";
 export const BLOCK_BUILDS: BlockBuild[] = ["stout", "tall", "wide", "mini", "long", "sentinel"];
@@ -191,6 +192,51 @@ export function blockEyeAnchor(build: BlockBuild, r: number, squash = 0): { cx: 
     cy: head.y + head.h * d.eyeDrop,
     headW: head.w,
     headH: head.h,
+  };
+}
+
+/** The torso slab alone — the region body cloth (scarf, shirt, belt) clips to. */
+export function traceBlockTorso(ctx: PathTarget, build: BlockBuild, r: number, squash = 0, gravity = 0) {
+  if ("beginPath" in ctx) ctx.beginPath();
+  rect(ctx, blockSlabs(build, r, squash, gravity)[0]);
+}
+
+/** Head and crown — the region hair (the mane) clips to, in head-transform space. */
+export function traceBlockHead(ctx: PathTarget, build: BlockBuild, r: number, squash = 0, gravity = 0) {
+  if ("beginPath" in ctx) ctx.beginPath();
+  for (const s of blockSlabs(build, r, squash, gravity).slice(1)) rect(ctx, s);
+}
+
+/**
+ * The block's wearing places. Unlike the blob, a block has real parts: hats go
+ * on the crown and scale with the widest head slab, glasses and the headset
+ * span the head, and everything worn on cloth — collar, chest, belt — lives on
+ * the torso, which is why none of them may be measured from the figure's
+ * bottom edge (that is the soles of its feet).
+ */
+export function blockAnchors(build: BlockBuild, r: number, squash = 0, gravity = 0, eye: EyeLine): BodyAnchors {
+  const [torso, head, crown] = blockSlabs(build, r, squash, gravity);
+  const headBot = head.y + head.h, torsoBot = torso.y + torso.h;
+  // a hat covers about two thirds of the widest head slab — the proportion the
+  // body radius happens to give on a stout block, which is where hats were tuned
+  const hatR = Math.max(crown.w, head.w) * 0.645;
+  const headR = head.w / 2, torsoR = torso.w / 2;
+  const onHead = (y: number, x = 0): Anchor => ({ x, y, r: headR, drop: headBot - y, rise: y - crown.y });
+  const onTorso = (y: number, x = 0): Anchor => ({ x, y, r: torsoR, drop: torsoBot - y, rise: y - torso.y });
+  // a cape hangs from the shoulders to the feet; it is drawn across 1.16 of its
+  // own unit, so sizing it that way makes it cover the figure whatever the build
+  const capeR = (blockBotY(build, r, squash) - torso.y) / 1.16;
+  const capeY = torso.y + capeR * 0.18;
+  return {
+    headTop: { x: 0, y: crown.y, r: hatR, drop: headBot - crown.y, rise: 0 },
+    headSide: onHead(eye.cy + headR * 0.28, headR * 0.98),
+    face: onHead(eye.cy + eye.oy, eye.ox),
+    // the collar zone is the top of the torso, not the whole of it: a scarf that
+    // fills a rectangular torso to its hem reads as a bib
+    neck: { ...onTorso(torso.y), drop: torso.h * 0.45 },
+    chest: onTorso(torso.y + torso.h * 0.28),
+    waist: onTorso(torso.y + torso.h * 0.7),
+    body: { x: 0, y: capeY, r: capeR, drop: blockBotY(build, r, squash) - capeY, rise: capeY - torso.y },
   };
 }
 

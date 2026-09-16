@@ -8,6 +8,7 @@
  *    shared saccades/attention/away semantics
  */
 import { CoreShape, coreRadiusAt } from "./cores";
+import type { Anchor, BodyAnchors, EyeLine } from "./anchors";
 
 export type BlobBody = "round" | "droplet" | "bean" | "pebble" | "squircle" | "tri" | "cloud" | "hexy";
 
@@ -149,6 +150,26 @@ export function blobTopR(body: BlobBody, r: number): number {
 /** Outline radius at the chin (+90°) — cloth necklines scale against this so bands fit squat/tall bodies. */
 export function blobBotR(body: BlobBody, r: number): number {
   return edgeR(body, r, Math.PI / 2);
+}
+
+/**
+ * The blob's wearing places. A blob has no neck and no waist: it is one soft
+ * body, so its collar, chest and waist lines are fractions of the chin (botY)
+ * — the proportions every accessory was originally drawn against — and its
+ * head is the whole body, so hats scale with the body radius.
+ */
+export function blobAnchors(r: number, topY: number, botY: number, eye: EyeLine): BodyAnchors {
+  const place = (y: number, x = 0): Anchor => ({ x, y, r, drop: botY - y, rise: y - topY });
+  return {
+    headTop: place(topY),
+    // the headset's cups sit just inside the silhouette, below the eye line
+    headSide: place(eye.cy + r * 0.28, r * 0.92),
+    face: place(eye.cy + eye.oy, eye.ox),
+    neck: place(botY * 0.44),
+    chest: place(botY * 0.5),
+    waist: place(botY * 0.7),
+    body: place(0),
+  };
 }
 
 /** Eye styles: googly (Doozy-style big sclera) | slit (Grok minimal pills →
