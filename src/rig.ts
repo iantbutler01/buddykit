@@ -36,8 +36,9 @@ export interface BuddyHandle {
   getState(): BuddyState;
   /**
    * The damper on needs_you, 0..1. At 1 the ask is fresh: the full wave, hop and double pulse.
-   * As the app lets it decay the pose settles toward idle — arm down, eyes normal — while the
-   * state stays needs_you, so loud means "just happened" and quiet means "still there". Working
+   * As the app lets it decay the wave, hop, pulse and sparkle fade and the eyes settle toward
+   * idle, while a block keeps its hand raised and still: loud means "just happened", quiet means
+   * "still there", and neither ever lowers the arm to a pose that is not a gesture. Working
    * and listening are not damped: they mirror live activity.
    */
   setAttention(level: number): void;
@@ -337,7 +338,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         col: [T.eyeHot, "#ffffff", T.eye][(rand() * 3) | 0],
       });
     };
-    const spRate = cfg.sparkle * (1 - grav) * (state === "needs_you" ? 2.4 : state === "working" ? 1.5
+    const spRate = cfg.sparkle * (1 - grav) * (state === "needs_you" ? 1 + 1.4 * attention : state === "working" ? 1.5
       : state === "listening" ? 0.7 : state === "away" ? 0.15 : 1);
     moteAcc += dt * spRate;
     while (moteAcc >= 1) { moteAcc -= 1; spawnMote(false); }

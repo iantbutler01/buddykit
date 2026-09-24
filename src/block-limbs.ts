@@ -46,11 +46,23 @@ export const REST_POSE: BlockPose = {
 /** Posture targets per state, as deltas on the rest pose where a channel is omitted. */
 const STATE_POSES: Record<BuddyState, Partial<BlockPose>> = {
   idle: {},
-  listening: { armR: { sh: 30, el: 150 }, head: { tilt: 0.14, dx: 0, dy: 0.02 } },
+  // hand to chin: the elbow tucks across the chest so the forearm can rise inward to the face
+  listening: { armR: { sh: -24, el: 244 }, head: { tilt: 0.14, dx: 0, dy: 0.02 } },
   working: { armL: { sh: 22, el: -112 }, armR: { sh: 22, el: -112 }, head: { tilt: 0, dx: 0, dy: 0.03 } },
   needs_you: { armR: { sh: 172, el: 16 }, shrugR: 0.34, head: { tilt: -0.1, dx: 0, dy: -0.02 } },
   away: { armL: { sh: 0, el: 0 }, armR: { sh: 0, el: 0 }, legL: { lift: 0, kick: -3 }, legR: { lift: 0, kick: -3 }, head: { tilt: 0.1, dx: 0, dy: 0.07 } },
 };
+
+/** A standing ask once it has settled: the hand stays up and still — "I have something for
+ *  you" — so a quieter ask is a stiller hand, never a lower arm. An arm between hanging and
+ *  raised is no gesture at all; at the old blend toward idle it pointed at the floor. */
+const SETTLED_ASK: Partial<BlockPose> = { armR: { sh: 150, el: 26 }, shrugR: 0.22, head: { tilt: -0.05, dx: 0, dy: -0.01 } };
+
+/** Hermite ease of x across [a, b], clamped to 0..1. */
+function smoothstep(a: number, b: number, x: number) {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
 
 const EMOTE_POSES: Partial<Record<BuddyEvent, Partial<BlockPose>>> = {
   joy: { armL: { sh: 160, el: 10 }, armR: { sh: 160, el: 10 }, shrugL: 0.22, shrugR: 0.22, head: { tilt: 0, dx: 0, dy: -0.03 } },
@@ -105,17 +117,18 @@ export interface PoseInput {
 /** The posture the springs should carry the joints toward. */
 export function posture(i: PoseInput): BlockPose {
   let pose = withDefaults(STATE_POSES[i.state]);
-  // a settled ask holds a quieter version of the pose: arm coming down, head levelling
-  if (i.state === "needs_you") pose = mix(withDefaults(STATE_POSES.idle), pose, i.attention ?? 1);
+  // a settled ask holds its hand up and still; a fresh one raises it all the way to wave
+  if (i.state === "needs_you") pose = mix(withDefaults(SETTLED_ASK), pose, i.attention ?? 1);
   if (i.flare) pose = mix(pose, withDefaults(EMOTE_POSES.flare!), 1);
   if (i.emote && EMOTE_POSES[i.emote]) pose = mix(pose, withDefaults(EMOTE_POSES[i.emote]!), i.env);
   if (i.emote === "joy") pose.hop = Math.abs(Math.sin(i.p * Math.PI * 2)) * 0.16 * i.env;
   if (i.emote === "nod") pose.head.dy = Math.sin(i.p * Math.PI * 3) * 0.05;
   if (i.emote === "shake") pose.head.dx = Math.sin(i.p * Math.PI * 5) * 0.06 * i.env;
   if (i.state === "needs_you") pose.hop = i.attn * 0.06;
-  // gravity damps the gesture, not the posture: arms still go where they go, less far
+  // gravity damps the gesture, not the posture: arms go exactly where the pose puts them —
+  // scaling joint angles pulled a hand off the chin or the hips — while the shrug, the head
+  // and the hop, which are emphasis, come down with it
   const g = 1 - 0.2 * i.gravity;
-  for (const a of [pose.armL, pose.armR]) { a.sh *= g; a.el *= g; }
   pose.shrugL *= g; pose.shrugR *= g; pose.head.tilt *= g; pose.hop *= g;
   return pose;
 }
@@ -126,7 +139,9 @@ export interface Gestures { wave: number; pump: number; march: number; stomp: nu
 export function gestures(i: PoseInput): Gestures {
   const g = 1 - 0.5 * i.gravity;
   return {
-    wave: i.state === "needs_you" ? g * (i.attention ?? 1) : 0,
+    // a wave fades out whole as the ask settles rather than shrinking: a small wave at full
+    // speed is a twitch
+    wave: i.state === "needs_you" ? g * smoothstep(0.35, 0.8, i.attention ?? 1) : 0,
     pump: i.state === "working" ? 1 : 0,
     march: i.state === "working" ? g : 0,
     stomp: i.emote === "angry" ? i.env : 0,

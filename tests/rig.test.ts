@@ -232,18 +232,37 @@ describe("block species", () => {
     expect(joy.hop).toBeGreaterThan(0.1);
     expect(gestures({ ...base, state: "working" }).pump).toBe(1);
     expect(gestures({ ...base, state: "idle" }).pump).toBe(0);
-    // gravity damps the gesture, never inverts it — and never leaks into the shared tables
+    // gravity damps the gesture, never the pose — and never leaks into the shared tables
     for (let i = 0; i < 50; i++) posture({ ...base, state: "needs_you", gravity: 1 });
-    expect(posture({ ...base, state: "needs_you", gravity: 1 }).armR.sh).toBeGreaterThan(90);
+    expect(posture({ ...base, state: "needs_you", gravity: 1 }).armR).toEqual(wave.armR);
     expect(posture({ ...base, state: "needs_you" }).armR.sh).toBe(172);
     expect(posture({ ...base, state: "idle" })).toEqual(REST_POSE);
-    // the damper: a settled ask keeps the state and loses the shouting — arm most of the way
-    // down, no wave — and a fresh one (attention 1, the default) is the full pose
-    const settled = posture({ ...base, state: "needs_you", attention: 0.15 });
-    expect(settled.armR.sh).toBeLessThan(wave.armR.sh);
-    expect(settled.armR.sh).toBeLessThan(REST_POSE.armR.sh + 0.2 * (wave.armR.sh - REST_POSE.armR.sh));
-    expect(gestures({ ...base, state: "needs_you", attention: 0.15 }).wave).toBeCloseTo(0.15, 5);
-    expect(gestures({ ...base, state: "needs_you", attention: 0 }).wave).toBe(0);
+    // contact poses survive gravity: the hand stays at the chin, the hips, the keys
+    for (const state of ["listening", "working"] as const) {
+      expect(posture({ ...base, state, gravity: 1 }).armR).toEqual(posture({ ...base, state }).armR);
+    }
+    expect(posture({ ...base, state: "idle", emote: "annoyed", env: 1, gravity: 1 }).armL)
+      .toEqual(posture({ ...base, state: "idle", emote: "annoyed", env: 1 }).armL);
+    expect(gestures({ ...base, state: "needs_you", gravity: 1 }).wave).toBeLessThan(1);
+    // listening brings the hand to the chin on every build: within a fifth of the body radius
+    // of the head's underside, where the old pose left it most of a radius away at the shoulder
+    for (const build of ["stout", "tall", "wide", "mini", "long", "sentinel"] as const) {
+      const f = blockFigure(build, 100, 0, 0, posture({ ...base, state: "listening" }));
+      const head = f.slabs[1], hand = f.arms[5];
+      const tipX = hand.px - Math.sin(hand.a) * hand.len, tipY = hand.py + Math.cos(hand.a) * hand.len;
+      expect(Math.hypot(tipX - (head.x + head.w * 0.62), tipY - (head.y + head.h)), build).toBeLessThan(22);
+    }
+    // the damper: a quieter ask is a stiller hand, never a lower arm — at every level the
+    // hand is above the shoulder, and the wave is gone well before the ask reaches its floor
+    for (const attention of [1, 0.6, 0.35, 0.15, 0]) {
+      const held = posture({ ...base, state: "needs_you", attention });
+      expect(held.armR.sh, `attention ${attention}`).toBeGreaterThanOrEqual(145);
+      const fig = blockFigure("stout", 100, 0, 0, held);
+      expect(fig.arms[5].py, `attention ${attention}`).toBeLessThan(fig.arms[3].py);
+    }
+    expect(gestures({ ...base, state: "needs_you", attention: 1 }).wave).toBe(1);
+    expect(gestures({ ...base, state: "needs_you", attention: 0.35 }).wave).toBe(0);
+    expect(gestures({ ...base, state: "needs_you", attention: 0.15 }).wave).toBe(0);
     expect(posture({ ...base, state: "needs_you", attention: 1 })).toEqual(wave);
     // a wave through the rig: the right hand ends up above the shoulder
     const rig = new LimbRig();

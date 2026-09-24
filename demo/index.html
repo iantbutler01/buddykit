@@ -80,6 +80,8 @@
         <button class="st" data-v="working">working</button>
         <button class="st" data-v="needs_you">needs you</button>
         <button class="st" data-v="away">away</button>
+        <label class="l" for="attention">attention <output id="attentionv">1.00</output></label>
+        <input id="attention" type="range" min="0" max="1" step="0.05" value="1">
         <button id="flare">✦ flare</button>
         <button class="em" data-v="joy">joy</button>
         <button class="em" data-v="surprise">surprise</button>
@@ -226,6 +228,12 @@
       cb(b.dataset.v);
     }));
   press(".st", (v) => buddy.setState(v));
+  // the needs_you damper, as the app drives it: 1 is a fresh ask, 0.15 is the settled floor
+  const attention = document.getElementById("attention");
+  attention.addEventListener("input", () => {
+    buddy.setAttention(Number(attention.value));
+    document.getElementById("attentionv").textContent = Number(attention.value).toFixed(2);
+  });
   press(".sp", (v) => buddy.configure({ species: v }));
   press(".bu", (v) => buddy.configure({ build: v }));
   // shell ring — independent toggle, mixes with any body/hardness
