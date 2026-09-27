@@ -131,7 +131,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   buildPlates();
 
   const io = typeof IntersectionObserver !== "undefined"
-    ? new IntersectionObserver((entries) => { visible = entries[0]?.isIntersecting ?? true; })
+    ? new IntersectionObserver((entries) => {
+        visible = entries[0]?.isIntersecting ?? true;
+        if (visible) resume();
+      })
     : null;
   io?.observe(canvas);
 
@@ -174,8 +177,32 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     c.closePath();
   }
 
+  // Idle drawing budget: the buddy's springs read smoothly at 30 fps, and drawing at the
+  // display's 120 Hz cost a quarter of a GPU while it sat still. Hidden or offscreen, the
+  // loop parks instead of polling every frame, and resumes when it is seen again.
+  const MIN_FRAME_MS = 1000 / 30;
+  let lastDraw = 0, parked = false;
+  function resume() {
+    if (!parked || destroyed || reduced) return;
+    parked = false;
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+  const onVisibility = () => { if (typeof document !== "undefined" && !document.hidden) resume(); };
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibility);
+
   function frame(now: number) {
     if (destroyed) return;
+    if (!visible || (typeof document !== "undefined" && document.hidden)) {
+      parked = true;
+      raf = 0;
+      return;
+    }
+    if (now - lastDraw < MIN_FRAME_MS) {
+      raf = requestAnimationFrame(frame);
+      return;
+    }
+    lastDraw = now;
     try {
       frameInner(now);
     } catch (e) {
@@ -870,6 +897,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       cancelAnimationFrame(raf);
       if (blinkTimer) clearTimeout(blinkTimer);
       io?.disconnect();
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisibility);
       if (typeof removeEventListener !== "undefined") removeEventListener("resize", onResize);
     },
   };
