@@ -356,6 +356,13 @@ export function drawAccessory(
     // baseball cap: dark dome + forward brim + white button
     ctx.translate(a.x, a.y + u * 0.08);
     ctx.fillStyle = co ?? g.dark;
+    if (g.fine) {
+      // fine: a tighter crown and a slim, crisp brim; no button
+      ctx.beginPath(); ctx.ellipse(0, 0, u * 0.4, u * 0.25, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(u * 0.12, -u * 0.035, u * 0.52, u * 0.07, u * 0.035); ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.beginPath();
     ctx.ellipse(0, 0, u * 0.46, u * 0.3, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
@@ -408,6 +415,15 @@ export function drawAccessory(
   } else if (name === "toque") {
     // chef hat: white band + three puff lobes
     ctx.translate(a.x, a.y + u * 0.06);
+    if (g.fine) {
+      // fine: a slimmer band under one soft crown (three lobes merged into a cloud)
+      ctx.beginPath(); ctx.roundRect(-u * 0.24, -u * 0.1, u * 0.48, u * 0.11, u * 0.04); ctx.fill();
+      for (const [dx, r] of [[-0.15, 0.12], [0, 0.15], [0.15, 0.12]] as [number, number][]) {
+        ctx.beginPath(); ctx.arc(u * dx, -u * (0.17 + r * 0.45), u * r, 0, 7); ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
     ctx.beginPath(); ctx.roundRect(-u * 0.3, -u * 0.14, u * 0.6, u * 0.16, u * 0.03); ctx.fill();
     for (const [dx, r] of [[-0.2, 0.15], [0, 0.18], [0.2, 0.15]] as [number, number][]) {
       ctx.beginPath(); ctx.arc(u * dx, -u * (0.2 + r * 0.5), u * r, 0, 7); ctx.fill();
@@ -416,6 +432,19 @@ export function drawAccessory(
     // graduation cap: dark diamond board + swaying tassel
     ctx.translate(a.x, a.y + u * 0.04);
     ctx.fillStyle = co ?? g.dark;
+    if (g.fine) {
+      // fine: a flatter board seen nearly edge-on, a small crown, a hairline tassel
+      ctx.beginPath(); ctx.ellipse(0, u * 0.02, u * 0.28, u * 0.1, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-u * 0.5, -u * 0.05); ctx.lineTo(0, -u * 0.16); ctx.lineTo(u * 0.5, -u * 0.05); ctx.lineTo(0, u * 0.05);
+      ctx.closePath(); ctx.fill();
+      const sw = Math.sin(t * 1.6) * 0.04;
+      ctx.strokeStyle = co ?? g.dark; ctx.lineWidth = u * 0.022;
+      ctx.beginPath(); ctx.moveTo(0, -u * 0.06); ctx.quadraticCurveTo(u * (0.36 + sw), -u * 0.03, u * (0.42 + sw), u * 0.14); ctx.stroke();
+      ctx.beginPath(); ctx.arc(u * (0.42 + sw), u * 0.18, u * 0.04, 0, 7); ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.beginPath();
     ctx.ellipse(0, u * 0.02, u * 0.34, u * 0.14, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
