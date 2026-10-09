@@ -3,7 +3,7 @@ export { mountBuddy, renderPosterPng } from "./rig";
 export type { BuddyMountOptions, BuddyHandle } from "./rig";
 export { DEFAULT_CONFIG, resolveConfig } from "./config";
 export type { BuddyConfig } from "./config";
-export { registerTheme, getTheme, themeNames, resolveTheme, themeFromAccent, makeTheme, glowToHex } from "./themes";
+export { registerTheme, getTheme, themeNames, resolveTheme, themeFromAccent, makeTheme, glowToHex, popTheme, POP_HUES, POP_INK } from "./themes";
 export type { BuddyTheme, ThemeInput, ThemeSpec } from "./themes";
 export { FAMILIES, shapePts, shapeDetail, shapeAccent } from "./families";
 export type { FamilyName, PlateDef, ShapeKind } from "./families";

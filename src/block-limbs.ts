@@ -72,6 +72,7 @@ const EMOTE_POSES: Partial<Record<BuddyEvent, Partial<BlockPose>>> = {
   tired: { armL: { sh: 0, el: 0 }, armR: { sh: 0, el: 0 }, head: { tilt: 0.16, dx: 0, dy: 0.08 } },
   annoyed: { armL: { sh: 52, el: -118 }, armR: { sh: 52, el: -118 }, head: { tilt: -0.12, dx: 0, dy: 0 } },
   flare: { armL: { sh: 96, el: 0 }, armR: { sh: 96, el: 0 } },
+  dance: { armL: { sh: 150, el: 30 }, armR: { sh: 150, el: 30 }, shrugL: 0.15, shrugR: 0.15 },
 };
 
 /** A fresh, fully-owned pose: the tables above are shared and must never be

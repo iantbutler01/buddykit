@@ -10,7 +10,7 @@
 import { Spring } from "./spring";
 import { BuddyTheme, resolveTheme } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts, shapeDetail, shapeAccent } from "./families";
-import { type StateDef, STATES, EMOTES, BuddyState, BuddyEvent } from "./states";
+import { type StateDef, STATES, EMOTES, DANCE_BPS, BuddyState, BuddyEvent } from "./states";
 
 function mixState(a: StateDef, b: StateDef, w: number): StateDef {
   const l = (x: number, y: number) => x + (y - x) * w;
@@ -238,6 +238,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     let eJoy = 0, eSad = 0, eAngry = 0, eTired = 0, eAnnoy = 0;
     let emoteHop = 0, emoteTilt = 0, emoteSquash = 0, emoteWide = 0;
     let emoteKick = 0, emoteP = 0;   // surprise: sharp-attack shell snap + shock ring
+    let danceEmote = 0;
     if (emote) {
       emoteT += dt0;
       const p = Math.min(1, emoteT / EMOTES[emote]);
@@ -273,11 +274,24 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       } else if (emote === "annoyed") {
         eAnnoy = env;
         emoteTilt = Math.sin(p * Math.PI) * 0.22;                     // look away
+      } else if (emote === "dance") {
+        danceEmote = Math.min(1, p * 8, (1 - p) * 8);                 // quick in, hold, quick out
+        eJoy = 0.6 * danceEmote;                                      // happy eyes through the dance
       }
       if (p >= 1) emote = null;
     }
     // shared derived channels
     const grav = cfg.gravity;
+    // ---- dance: one hop lands on each beat, leaning to alternate sides at the top
+    // of each hop and squashing on landing. groove plays it under idle; the dance
+    // emote plays it in full. Gravity calms it, as it does every other motion ----
+    const dance = Math.max(state === "idle" ? cfg.groove : 0, danceEmote) * (1 - 0.7 * grav);
+    if (dance > 0) {
+      const beat = t * DANCE_BPS;   // t runs on cfg.speed, so speed is the tempo
+      emoteHop -= Math.abs(Math.sin(Math.PI * beat)) * 13 * DPR * dance;
+      emoteTilt += Math.sin(Math.PI * beat) * 0.15 * dance;
+      emoteSquash -= Math.cos(2 * Math.PI * beat) * 0.07 * dance;
+    }
     const emoteLidMul = Math.max(0.18, 1 - 0.7 * eTired - 0.55 * eAnnoy) * (1 - 0.3 * grav);
     const emoteSlant = -0.5 * eAngry + 0.35 * eSad;   // angry brows in, sad brows out
     const emoteGazeY = 0.8 * eSad - 0.6 * eAnnoy;    // sad looks down, annoyed rolls up
@@ -333,7 +347,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
     // ---- ambient glow ----
     const eyeOn = eyeScale.p * eyeLid.p;
-    const G = cfg.glow;
+    // the pop finish is one flat colour with nothing around it: no bloom, halo or dust
+    const pop = cfg.finish === "pop";
+    const G = pop ? 0 : cfg.glow;
     let g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
     g.addColorStop(0, T.glow + Math.min(1, (0.16 + eyeOn * 0.12 + attn * 0.3) * G) + ")");
     g.addColorStop(1, T.glow + "0)");
@@ -342,10 +358,18 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     // rings
     const ring = (age: number, life: number, maxR: number, alpha: number) => {
       const q = age / life; if (q < 0 || q > 1) return;
+      ctx.save();
       ctx.beginPath(); ctx.arc(cx, cy + bodyY.p, R * (1.15 + q * maxR), 0, 7);
-      ctx.strokeStyle = T.glow + Math.min(1, alpha * (1 - q) * G) + ")";
+      if (pop) {
+        // no glow to carry the ring: draw it in the body colour instead
+        ctx.globalAlpha = Math.min(1, alpha * (1 - q));
+        ctx.strokeStyle = T.accent;
+      } else {
+        ctx.strokeStyle = T.glow + Math.min(1, alpha * (1 - q) * G) + ")";
+      }
       ctx.lineWidth = DPR * 2 * (1 - q) + 0.4;
       ctx.stroke();
+      ctx.restore();
     };
     ticks.forEach((k) => ring(t - k, 1, 1.15, 0.4));
     if (flareRing >= 0) ring(flareRing, 0.8, 2.2, 0.85);
@@ -365,11 +389,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         col: [T.eyeHot, "#ffffff", T.eye][(rand() * 3) | 0],
       });
     };
-    const spRate = cfg.sparkle * (1 - grav) * (state === "needs_you" ? 1 + 1.4 * attention : state === "working" ? 1.5
+    const spRate = (pop ? 0 : cfg.sparkle) * (1 - grav) * (state === "needs_you" ? 1 + 1.4 * attention : state === "working" ? 1.5
       : state === "listening" ? 0.7 : state === "away" ? 0.15 : 1);
     moteAcc += dt * spRate;
     while (moteAcc >= 1) { moteAcc -= 1; spawnMote(false); }
-    if (flareRing >= 0 && !flareBurst) { flareBurst = true; for (let i = 0; i < 16; i++) spawnMote(true); }
+    if (!pop && flareRing >= 0 && !flareBurst) { flareBurst = true; for (let i = 0; i < 16; i++) spawnMote(true); }
     if (flareRing < 0) flareBurst = false;
     motes = motes.filter((m) => (m.age += dt) < m.life);
     for (const m of motes) {
@@ -485,7 +509,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         anchors: blockAnchors(cfg.build, bodyR, squash, grav, eye),
         eyeCX: eye.cx, ringR: eyeSize * 0.62,
         t, dark: T.coreDisc, accent: T.accent,
-        clipCloth, clipHead, colors: cfg.accessoryColors,
+        clipCloth, clipHead, colors: cfg.accessoryColors, tone: cfg.accessoryTone,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
       // glow halo + a real drop shadow: a block is always an object
@@ -549,7 +573,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // body-clipped accessory (was up to six full re-traces per frame)
       const bodyPath = new Path2D();
       const squareEff = cfg.squareness + (1 - cfg.squareness) * 0.55 * grav;
-      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, squareEff, hard, cfg.core);
+      // pop keeps the silhouette one clean curve: the edge ripple is off, so the
+      // outline moves only with squash, and the outline is smoothed so the kinks
+      // where the organic profile meets the faceted core (hardness) iron out while
+      // each body keeps its form
+      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, squareEff, hard, cfg.core, pop ? 0 : 1, pop ? 8 : 0);
       // shared eye placement — the eye renderer and accessories (glasses,
       // headset) must agree on where the eyes are; computed before the body
       // paints so behind-layer accessories (capes) can use the same geometry
@@ -580,7 +608,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         anchors: blobAnchors(bodyR, topY, botY, eye),
         eyeCX: eye.cx, ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
         t, dark: T.coreDisc, accent: T.accent,
-        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors,
+        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors, tone: cfg.accessoryTone,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
 
@@ -591,7 +619,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       ctx.shadowBlur = 0;
       // depth — a body among orbiting objects (or a hard one) must read as an
       // object itself: soft drop shadow + inner rim bevel; pure blobs stay flat
-      const depth = Math.max(cfg.shell ? 0.7 : 0, hard * 0.7);
+      const depth = pop ? 0 : Math.max(cfg.shell ? 0.7 : 0, hard * 0.7);
       if (depth > 0) {
         ctx.save();
         ctx.shadowColor = `rgba(0,0,0,${0.38 * depth})`;
@@ -600,7 +628,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         ctx.fillStyle = T.accent; ctx.fill(bodyPath);
         ctx.restore();
       }
-      if (cfg.gradient > 0) {
+      if (!pop && cfg.gradient > 0) {
         // soft top-light / bottom-shade over the accent, refilling the same path
         const ga = 0.2 * cfg.gradient;
         const gr = ctx.createLinearGradient(0, -bodyR * 1.25, 0, bodyR * 1.25);
@@ -621,7 +649,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         ctx.stroke(bodyPath);
         ctx.restore();
       }
-      const facetA = Math.max(0, (hard - 0.35) / 0.65);   // facets fade in past mid-hardness
+      const facetA = pop ? 0 : Math.max(0, (hard - 0.35) / 0.65);   // facets fade in past mid-hardness
       if (facetA > 0 && traceFacets(ctx, cfg.core, bodyR * 0.96)) {
         // faint facet lines — the hard-material read
         ctx.strokeStyle = T.glow + Math.min(1, 0.16 * facetA * G) + ")";

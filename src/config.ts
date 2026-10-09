@@ -39,6 +39,11 @@ export interface BuddyConfig {
   /** per-accessory primary-color overrides, e.g. { tie: "#d6453d" } — details
    *  (buckles, drawstrings, inner ears) keep their doctrine colors */
   accessoryColors: Partial<Record<AccessoryName, string>>;
+  /** one primary colour for every accessory — the iPod-earbud signature (e.g. all
+   *  white on an ink body, all ink on a bright one). Per-accessory accessoryColors
+   *  still win, and details switch to whichever of ink or white contrasts with it.
+   *  null keeps each accessory's own doctrine colour (default null) */
+  accessoryTone: string | null;
   /** registered theme name, or a raw BuddyTheme color object (default "ember") */
   theme: ThemeInput;
   /** resting shell spread 0..1 — trust posture (strict .15 / standard .35 / high .55) */
@@ -75,6 +80,14 @@ export interface BuddyConfig {
   glow: number;
   /** pixie-dust emission rate (0 = off) */
   sparkle: number;
+  /** surface finish (default "soft"):
+   *  - "soft": the reference look — ambient glow, bloom, pixie dust, depth bevel,
+   *    facet lines and the gradient setting
+   *  - "pop": one flat colour with a crisp, still edge and nothing around it — the
+   *    bold-silhouette look. The edge ripple is off and the outline is smoothed, so
+   *    a half-hard body keeps its shape without the faceted kinks; glow, sparkle,
+   *    gradient, the depth bevel and facet lines are all off (blob species) */
+  finish: "soft" | "pop";
 
   // ---- motion (multipliers, 1 = reference) ----
   /** hover bob amplitude */
@@ -85,6 +98,10 @@ export interface BuddyConfig {
   spread: number;
   /** global tempo — phase clocks and personality timers */
   speed: number;
+  /** idle dance 0..1 — a steady beat of hops, side-to-side sway and landing
+   *  squash layered over the idle bob (0 = off, default). fire("dance") plays the
+   *  full dance once whatever this is set to */
+  groove: number;
 
   // ---- personality cadence (multipliers, 1 = reference) ----
   /** blink frequency */
@@ -104,6 +121,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   core: "sphere",
   accessories: [],
   accessoryColors: {},
+  accessoryTone: null,
   theme: "ember",
   trust: 0.35,
   seed: 42,
@@ -121,11 +139,13 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   gravity: 0,
   glow: 1,
   sparkle: 1,
+  finish: "soft",
 
   bob: 1,
   tiltiness: 1,
   spread: 1,
   speed: 1,
+  groove: 0,
 
   blinkRate: 1,
   glanceRate: 1,
@@ -145,6 +165,9 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   cfg.squareness = Math.max(0, Math.min(1, cfg.squareness));
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
   cfg.gravity = Math.max(0, Math.min(1, cfg.gravity));
+  cfg.groove = Math.max(0, Math.min(1, cfg.groove));
+  cfg.finish = cfg.finish === "pop" ? "pop" : "soft";
+  cfg.accessoryTone = cfg.accessoryTone || null;
   cfg.accessoryColors = { ...cfg.accessoryColors };
   cfg.accessories = [...new Set(cfg.accessories)]
     .filter((a) => a !== "none")

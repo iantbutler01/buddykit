@@ -1,0 +1,149 @@
+import { describe, it, expect } from "vitest";
+import { resolveConfig, DEFAULT_CONFIG } from "../src/config";
+import { popTheme, getTheme, themeNames, POP_HUES, POP_INK } from "../src/themes";
+import { traceBlob, blobAnchors } from "../src/blob";
+import { EMOTES, DANCE_BPS } from "../src/states";
+import { posture, REST_POSE } from "../src/block-limbs";
+import { drawAccessory, type AccessoryGeom } from "../src/accessories";
+
+/** A path target that keeps the control points traceBlob emits. */
+function recordOutline(...args: Parameters<typeof traceBlob> extends [unknown, ...infer R] ? R : never) {
+  const pts: [number, number][] = [];
+  const target = {
+    moveTo: (x: number, y: number) => pts.push([x, y]),
+    quadraticCurveTo: (cx: number, cy: number, x: number, y: number) => { pts.push([cx, cy]); pts.push([x, y]); },
+    closePath: () => {},
+  };
+  traceBlob(target as unknown as Path2D, ...args);
+  return pts;
+}
+
+/** The largest bend between neighbouring control points: kinks show up as spikes. */
+function maxBend(pts: [number, number][]) {
+  let m = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [a, b, c] = [pts[i - 1], pts[i], pts[i + 1]];
+    m = Math.max(m, Math.hypot(a[0] - 2 * b[0] + c[0], a[1] - 2 * b[1] + c[1]));
+  }
+  return m;
+}
+const meanRadius = (pts: [number, number][]) => pts.reduce((s, p) => s + Math.hypot(p[0], p[1]), 0) / pts.length;
+
+describe("pop config", () => {
+  it("defaults keep the reference look: soft finish, no groove, no tone", () => {
+    expect(DEFAULT_CONFIG.finish).toBe("soft");
+    expect(DEFAULT_CONFIG.groove).toBe(0);
+    expect(DEFAULT_CONFIG.accessoryTone).toBeNull();
+    expect(resolveConfig()).toEqual(DEFAULT_CONFIG);
+  });
+  it("clamps groove, rejects unknown finishes and treats an empty tone as none", () => {
+    const c = resolveConfig({ groove: 3, finish: "matte" as never, accessoryTone: "" });
+    expect(c.groove).toBe(1);
+    expect(c.finish).toBe("soft");
+    expect(c.accessoryTone).toBeNull();
+    expect(resolveConfig({ groove: -1, finish: "pop" }).groove).toBe(0);
+    expect(resolveConfig({ finish: "pop" }).finish).toBe("pop");
+  });
+});
+
+describe("pop palettes", () => {
+  it("the hue is the body; eyes are white; cloth is ink on a bright hue", () => {
+    const t = popTheme("#ff3d8b");
+    expect(t.accent).toBe("#ff3d8b");
+    expect(t.eye).toBe("#ffffff");
+    expect(t.eyeHot).toBe("#ffffff");
+    expect(t.coreDisc).toBe(POP_INK);
+    expect(t.glow).toMatch(/^rgba\(\d+,\d+,\d+,$/);
+  });
+  it("an ink body (the silhouette) gets white cloth, or the cloth would vanish", () => {
+    expect(popTheme(POP_INK).coreDisc).toBe("#ffffff");
+  });
+  it("registers every named pop hue", () => {
+    expect(themeNames()).toEqual(expect.arrayContaining(Object.keys(POP_HUES)));
+    for (const [name, hue] of Object.entries(POP_HUES)) expect(getTheme(name).accent).toBe(hue);
+  });
+});
+
+describe("crisp blob outline", () => {
+  it("with wobble off the edge holds still over time; the reference edge ripples", () => {
+    const still0 = recordOutline("bean", 100, 0, 1, 0, 0, 0.45, "d12", 0);
+    const still1 = recordOutline("bean", 100, 3.7, 1, 0, 0, 0.45, "d12", 0);
+    expect(still1).toEqual(still0);
+    const live0 = recordOutline("bean", 100, 0, 1, 0, 0, 0.2, "d12", 1);
+    const live1 = recordOutline("bean", 100, 3.7, 1, 0, 0, 0.2, "d12", 1);
+    expect(live1).not.toEqual(live0);
+  });
+  it("smoothing irons out the faceted kinks of a half-hard body but keeps its size", () => {
+    for (const [body, core] of [["bean", "d12"], ["hexy", "gem"], ["squircle", "cube"]] as const) {
+      const raw = recordOutline(body, 100, 0, 0, 0, 0, 0.5, core, 0, 0);
+      const smooth = recordOutline(body, 100, 0, 0, 0, 0, 0.5, core, 0, 8);
+      expect(maxBend(smooth), `${body}/${core}`).toBeLessThan(maxBend(raw) * 0.6);
+      expect(Math.abs(meanRadius(smooth) / meanRadius(raw) - 1), `${body}/${core}`).toBeLessThan(0.02);
+    }
+  });
+});
+
+describe("dance", () => {
+  it("is a playable emote on a 120 bpm beat", () => {
+    expect(EMOTES.dance).toBeGreaterThan(1);
+    expect(DANCE_BPS).toBe(2);
+  });
+  it("a block throws its arms up for it", () => {
+    const pose = posture({ state: "idle", emote: "dance", env: 1, p: 0.5, flare: false, attn: 0, gravity: 0 });
+    expect(pose.armL.sh).toBeGreaterThan(REST_POSE.armL.sh + 90);
+    expect(pose.armR.sh).toBeGreaterThan(REST_POSE.armR.sh + 90);
+  });
+});
+
+/** A 2d context that records the colour of every fill and stroke. */
+function recordingContext() {
+  const paints: { op: "fill" | "stroke"; color: string }[] = [];
+  const state: Record<string, unknown> = { fillStyle: "#000000", strokeStyle: "#000000", lineWidth: 1, lineCap: "butt", globalAlpha: 1 };
+  const stack: Record<string, unknown>[] = [];
+  const ctx = new Proxy(state, {
+    get(target, prop: string) {
+      if (prop in target) return target[prop];
+      if (prop === "save") return () => stack.push({ ...target });
+      if (prop === "restore") return () => Object.assign(target, stack.pop());
+      if (prop === "fill" || prop === "fillRect") return () => paints.push({ op: "fill", color: String(target.fillStyle) });
+      if (prop === "stroke") return () => paints.push({ op: "stroke", color: String(target.strokeStyle) });
+      return () => {};
+    },
+    set(target, prop: string, value) { target[prop] = value; return true; },
+  });
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, paints };
+}
+
+function hoodiePaints(extra: Partial<AccessoryGeom>) {
+  const { ctx, paints } = recordingContext();
+  const geom: AccessoryGeom = {
+    anchors: blobAnchors(100, -100, 100, { cy: -18, ox: 0, oy: 0 }),
+    eyeCX: 26, ringR: 24, t: 0, dark: POP_INK, accent: "#ff3d8b",
+    clipCloth: {} as Path2D, clipHead: {} as Path2D, ...extra,
+  };
+  drawAccessory(ctx, "hoodie", geom, 1);
+  return { cloth: paints[0].color, details: paints.slice(1).map((p) => p.color) };
+}
+
+describe("accessory tone", () => {
+  it("doctrine colours without a tone: dark cloth, white drawstrings", () => {
+    const { cloth, details } = hoodiePaints({});
+    expect(cloth).toBe(POP_INK);
+    expect(new Set(details)).toEqual(new Set(["#ffffff"]));
+  });
+  it("a white tone dresses the hoodie white and turns its drawstrings dark so they still show", () => {
+    const { cloth, details } = hoodiePaints({ tone: "#ffffff" });
+    expect(cloth).toBe("#ffffff");
+    expect(new Set(details)).toEqual(new Set([POP_INK]));
+  });
+  it("an ink tone keeps white details on the ink cloth", () => {
+    const { cloth, details } = hoodiePaints({ tone: POP_INK });
+    expect(cloth).toBe(POP_INK);
+    expect(new Set(details)).toEqual(new Set(["#ffffff"]));
+  });
+  it("a per-accessory colour wins over the tone and keeps doctrine details", () => {
+    const { cloth, details } = hoodiePaints({ tone: "#ffffff", colors: { hoodie: "#c8a24a" } });
+    expect(cloth).toBe("#c8a24a");
+    expect(new Set(details)).toEqual(new Set(["#ffffff"]));
+  });
+});

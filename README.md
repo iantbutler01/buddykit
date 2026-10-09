@@ -28,11 +28,31 @@ const buddy = mountBuddy(canvasEl, {
 });
 
 buddy.setState("working");   // idle | listening | working | needs_you | away
-buddy.fire("joy");           // joy | surprise | nod | shake | sad | angry | tired | annoyed
+buddy.fire("joy");           // joy | surprise | nod | shake | sad | angry | tired | annoyed | dance
 buddy.configure({ theme: "sumi", accessories: ["tophat", "monocle", "cape"] });
 const cfg = buddy.getConfig();   // a buddy IS its config — store it, remount it anywhere
 buddy.destroy();
 ```
+
+### Pop: the bold-silhouette look
+
+![soft finish above, pop finish below](docs/evidence/pop/soft-vs-pop.png)
+
+```ts
+mountBuddy(canvasEl, {
+  species: "blob", body: "bean", eyes: "slit", eyeShift: 0.16,
+  finish: "pop",              // one flat colour, a crisp still edge, no glow, dust, bevel or gradient
+  theme: "pop-pink",          // pop-lime | pop-pink | pop-cobalt | pop-tangerine | pop-violet | pop-ink, or popTheme("#hex")
+  accessories: ["scarf", "sunglasses"],
+  accessoryTone: "#16181d",   // every accessory in one colour; details flip to stay visible
+  groove: 0.6,                // idle dance: hops on a 120 bpm beat, leaning side to side
+});
+```
+
+`finish` defaults to `"soft"`, the reference look, so existing configs render
+as before. `pop-ink` with a white `accessoryTone` is the silhouette: an ink figure
+whose hat, headset or scarf is the one bright thing on it. `fire("dance")` plays
+the full dance once on any species.
 
 A buddy is deterministic from its config: `getConfig()` → JSON →
 `mountBuddy(canvas, cfg)` reproduces the identical character. `renderPosterPng`

@@ -85,7 +85,12 @@ function coreProfile(core: CoreShape): Float64Array {
 
 /** Trace the blob outline into a context or Path2D. squash: +stretch / -squash.
  *  hardness 0..1 morphs the organic silhouette toward the rigid core
- *  polyhedron (ray-sampled on the same radial grid); wobble fades with it. */
+ *  polyhedron (ray-sampled on the same radial grid); wobble fades with it.
+ *  wobble scales the living edge ripple (1 = reference, 0 = a still, crisp edge:
+ *  the outline then moves only with squash). smooth runs that many passes of a
+ *  [¼ ½ ¼] filter around the outline: it irons out the kinks where the organic
+ *  profile meets a faceted core while keeping the overall form (each pass shrinks
+ *  a circle by about 0.1%). */
 export function traceBlob(
   ctx: PathTarget,
   body: BlobBody,
@@ -96,6 +101,8 @@ export function traceBlob(
   squareness = 0,
   hardness = 0,
   core: CoreShape = "sphere",
+  wobble = 1,
+  smooth = 0,
 ) {
   const def = BODIES[body];
   const soft = 1 - hardness;
@@ -103,7 +110,7 @@ export function traceBlob(
   const cores = hardness > 0 ? coreProfile(core) : null;
   const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
   const kx = sx * (1 + squash * 0.5), ky = sy * (1 - squash);
-  const wob = def.wobble * soft;
+  const wob = def.wobble * soft * wobble;
   const pts: [number, number][] = [];
   for (let i = 0; i < N; i++) {
     const th = TH[i];
@@ -116,6 +123,13 @@ export function traceBlob(
       pts.push([(xs * soft + COS[i] * cores[i] * hardness) * r, (ys * soft + SIN[i] * cores[i] * hardness) * r]);
     } else {
       pts.push([xs * r, ys * r]);
+    }
+  }
+  for (let pass = 0; pass < smooth; pass++) {
+    const prev = pts.map((p) => [p[0], p[1]] as [number, number]);
+    for (let i = 0; i < N; i++) {
+      const a = prev[(i + N - 1) % N], b = prev[i], c = prev[(i + 1) % N];
+      pts[i] = [(a[0] + 2 * b[0] + c[0]) / 4, (a[1] + 2 * b[1] + c[1]) / 4];
     }
   }
   if ("beginPath" in ctx) ctx.beginPath();   // Path2D targets start empty
