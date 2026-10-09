@@ -372,9 +372,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     const pop = finish !== "soft";
     const G = pop ? 0 : cfg.glow;
     // the made finishes dress in one considered line: crafted defaults its accessories to
-    // ink (they sit on light grounds), light to white light; an explicit tone wins
+    // ink (they sit on light grounds), light to white light; an explicit tone wins, and
+    // the finish default leaves colour-is-identity pieces (hardhat, Santa hat) alone
     const fineAcc = finish === "crafted" || finish === "light";
-    const accTone = cfg.accessoryTone ?? (finish === "crafted" ? T.coreDisc : finish === "light" ? "#ffffff" : null);
+    const finishTone = finish === "crafted" ? T.coreDisc : finish === "light" ? "#ffffff" : null;
     let g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
     g.addColorStop(0, T.glow + Math.min(1, (0.16 + eyeOn * 0.12 + attn * 0.3) * G) + ")");
     g.addColorStop(1, T.glow + "0)");
@@ -534,7 +535,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         anchors: blockAnchors(cfg.build, bodyR, squash, grav, eye),
         eyeCX: eye.cx, ringR: eyeSize * 0.62,
         t, dark: T.coreDisc, accent: T.accent,
-        clipCloth, clipHead, colors: cfg.accessoryColors, tone: accTone, fine: fineAcc,
+        clipCloth, clipHead, colors: cfg.accessoryColors, tone: cfg.accessoryTone, defaultTone: finishTone, fine: fineAcc,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
       // glow halo + a real drop shadow: a block is always an object
@@ -639,7 +640,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         anchors: blobAnchors(bodyR, topY, botY, eye),
         eyeCX: eye.cx, ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
         t, dark: T.coreDisc, accent: T.accent,
-        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors, tone: accTone, fine: fineAcc,
+        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors, tone: cfg.accessoryTone, defaultTone: finishTone, fine: fineAcc,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
 

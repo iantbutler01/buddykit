@@ -198,3 +198,22 @@ describe("fine accessories", () => {
     expect(paints("hoodie", {}).paints.length).toBeGreaterThan(1);
   });
 });
+
+describe("finish default tone", () => {
+  function primary(name: Parameters<typeof drawAccessory>[1], extra: Partial<AccessoryGeom>) {
+    const { ctx, paints } = recordingContext();
+    drawAccessory(ctx, name, {
+      anchors: blobAnchors(100, -100, 100, { cy: -18, ox: 0, oy: 0 }),
+      eyeCX: 26, ringR: 24, t: 0, dark: POP_INK, accent: "#1e7bff",
+      clipCloth: {} as Path2D, clipHead: {} as Path2D, ...extra,
+    }, 1);
+    return paints[0].color;
+  }
+  it("dresses ordinary accessories but leaves a hardhat yellow", () => {
+    expect(primary("cap", { defaultTone: "#ffffff" })).toBe("#ffffff");
+    expect(primary("hardhat", { defaultTone: "#ffffff" })).toBe("#f5c542");
+  });
+  it("an explicit tone still dresses everything", () => {
+    expect(primary("hardhat", { tone: "#ffffff", defaultTone: POP_INK })).toBe("#ffffff");
+  });
+});

@@ -106,10 +106,16 @@ export interface AccessoryGeom {
   colors?: Partial<Record<AccessoryName, string>>;
   /** one primary colour for every accessory (cfg.accessoryTone); per-accessory colors win */
   tone?: string | null;
+  /** the finish's own default tone (crafted ink, light white), used when no tone is set.
+   *  Unlike an explicit tone it leaves alone the accessories whose colour is the point */
+  defaultTone?: string | null;
   /** the refined drawing the crafted and light finishes use: one even, thinner line
    *  weight and slimmer forms, so an accessory reads as a considered detail, not a prop */
   fine?: boolean;
 }
+
+/** Accessories whose colour is the point: a finish's default tone leaves them be. */
+const KEEPS_COLOUR: ReadonlySet<AccessoryName> = new Set(["hardhat", "santa"]);
 
 /** Relative luminance above the midpoint: ink details read on it, white ones do not. */
 function isLight(color: string): boolean {
@@ -148,12 +154,15 @@ export function drawAccessory(
   const d = a.drop;   // room below the anchor
   const { t } = g;
   const own = g.colors?.[name];
-  const toned = !own && !!g.tone;
-  const co = own ?? (toned ? g.tone! : undefined);   // primary colour override
+  // an explicit tone dresses everything; a finish's default tone skips the accessories
+  // whose colour is their identity (a hardhat is yellow, a Santa hat red)
+  const tone = g.tone ?? (g.defaultTone && !KEEPS_COLOUR.has(name) ? g.defaultTone : null);
+  const toned = !own && !!tone;
+  const co = own ?? (toned ? tone! : undefined);   // primary colour override
   // Details keep their doctrine colours (white sparks, theme-dark cut-outs), except on a
   // toned accessory: there the details take whichever of white and theme-dark contrasts
   // with the tone, or a white hoodie's white drawstrings would vanish.
-  const toneLight = toned && isLight(g.tone!);
+  const toneLight = toned && isLight(tone!);
   const hi = toneLight ? g.dark : "#ffffff";
   const lo = toned && !toneLight ? "#ffffff" : g.dark;
   ctx.save();
@@ -316,10 +325,11 @@ export function drawAccessory(
   } else if (name === "shirt") {
     // shirt front: a white band over the chest, clipped to the cloth region —
     // anything floating mid-face reads as a mouth/mustache
-    const cy = a.y + d * 0.24;
+    const cy = a.y + d * (g.fine ? 0.5 : 0.24);
     ctx.save();
     ctx.clip(g.clipCloth);
-    ctx.fillRect(a.x - u * 1.6, cy, u * 3.2, d + u * 1.6);
+    if (g.fine) { wrapBand(ctx, a.x, cy, a.y + d + u * 1.6, u * 1.6, u * 0.08); ctx.fill(); }
+    else ctx.fillRect(a.x - u * 1.6, cy, u * 3.2, d + u * 1.6);
     // V neck opening in body color — narrow, so a layered tie fully covers it
     ctx.fillStyle = g.accent;
     ctx.beginPath();
@@ -492,10 +502,14 @@ export function drawAccessory(
     ctx.save();
     ctx.clip(g.clipCloth);
     ctx.fillStyle = co ?? g.dark;
-    ctx.fillRect(a.x - u * 1.6, a.y, u * 3.2, d * 0.8);
-    ctx.strokeStyle = hi; ctx.lineWidth = u * 0.035;
+    // fine: a slim belt that wraps with the body, the buckle sized to it
+    const bandD = g.fine ? Math.min(d * 0.8, u * 0.16) : d * 0.8;
+    if (g.fine) { wrapBand(ctx, a.x, a.y, a.y + bandD, u * 1.6, u * 0.07); ctx.fill(); }
+    else ctx.fillRect(a.x - u * 1.6, a.y, u * 3.2, bandD);
+    ctx.strokeStyle = hi; ctx.lineWidth = u * (g.fine ? 0.025 : 0.035);
     ctx.beginPath();
-    ctx.roundRect(a.x - u * 0.09, a.y + d * 0.183, u * 0.18, u * 0.13, u * 0.02);
+    if (g.fine) ctx.roundRect(a.x - u * 0.07, a.y + u * 0.07 + bandD * 0.5 - u * 0.05, u * 0.14, u * 0.1, u * 0.02);
+    else ctx.roundRect(a.x - u * 0.09, a.y + d * 0.183, u * 0.18, u * 0.13, u * 0.02);
     ctx.stroke();
     ctx.restore();
   } else if (name === "tophat") {
