@@ -110,6 +110,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   const limbs = new LimbRig();
   let t = 0, last = performance.now();
   let nextBlink = 2.5, nextGlance = 1.8, nextTilt = 4;
+  let nextSmile = 6, smileT = -1;   // the idle smile: a soft squint every so often
   let pulseT = 0, ticks: number[] = [], flareRing = -1;
   let attention = 1;
   let emote: Exclude<BuddyEvent, "flare"> | null = null, emoteT = 0;
@@ -318,6 +319,19 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         eyeX.set((rand() - 0.5) * 0.5 * (1 - 0.5 * grav));
         eyeY.set((rand() - 0.4) * 0.35 * (1 - 0.5 * grav));
       }
+    }
+    // now and then, at rest, a soft smile rises in the eyes and settles again
+    nextSmile -= dt;
+    if (nextSmile <= 0) {
+      nextSmile = 7 + rand() * 7;
+      if (state === "idle") smileT = 0;
+    }
+    let smile = 0;
+    if (smileT >= 0) {
+      smileT += dt;
+      const q = smileT / 1.8;
+      smile = q < 1 ? Math.sin(q * Math.PI) : 0;
+      if (q >= 1 || state !== "idle") smileT = -1;
     }
     nextTilt -= dt;
     if (nextTilt <= 0) {
@@ -730,9 +744,23 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades.
       // joy overrides the eye style with happy arcs at its peak; eyeAngle
       // rotates mirrored (90 = horizontal slits, small values = brow slants)
+      // the exact finishes smile with the eyes they have: a cheek rises into the bottom of
+      // each eye (joy, and the idle smile) instead of swapping in a crescent
+      const squintFace = pop && (cfg.eyes === "slit" || cfg.eyes === "dot");
+      const squint = squintFace ? Math.min(1, Math.max(eJoy * 1.3, smile * 0.55)) * (1 - 0.5 * grav) : 0;
       const eyeStyle: typeof cfg.eyes | "sadarc" =
-        cfg.eyes === "lens" ? "lens" : eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
+        cfg.eyes === "lens" ? "lens" : !squintFace && eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
       const eyeRot = (cfg.eyeAngle * Math.PI) / 180;
+      /** clip the current eye so a rising cheek (a large circle below it) trims its base */
+      const cheek = (w: number, h: number) => {
+        if (squint < 0.01) return;
+        const R = Math.max(w, h) * 1.6;
+        const cyc = h / 2 + R - squint * h * 0.62;
+        ctx.beginPath();
+        ctx.rect(-w * 3, -h * 3, w * 6, h * 6);
+        ctx.arc(0, cyc, R, 0, Math.PI * 2);
+        ctx.clip("evenodd");
+      };
       // crafted eyes are ink with a catchlight, like a made object's painted face;
       // every other finish keeps white eyes (light ones glow, set above)
       const inkEyes = finish === "crafted";
@@ -805,6 +833,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             // scale-then-rotate, or a horizontal slit blinks sideways
             ctx.scale(1, ap);
             ctx.rotate(sgn * (0.06 * soft + eyeRot + emoteSlant));
+            cheek(ew, eh);
             ctx.beginPath();
             ctx.roundRect(-ew / 2, -eh / 2, ew, eh, rr);
             ctx.fillStyle = eyeCol; ctx.fill();
@@ -822,6 +851,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             if (closed) { sleepArc(restR * 0.8); ctx.restore(); continue; }
             ctx.scale(1, ap);
             ctx.rotate(sgn * (eyeRot + emoteSlant));
+            cheek(er * 2, er * 2);
             ctx.beginPath();
             ctx.roundRect(-er, -er, er * 2, er * 2, rr);
             ctx.fillStyle = eyeCol; ctx.fill();
