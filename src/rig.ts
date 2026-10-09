@@ -17,7 +17,7 @@ function mixState(a: StateDef, b: StateDef, w: number): StateDef {
   return { spread: l(a.spread, b.spread), eye: l(a.eye, b.eye), eyeOpen: l(a.eyeOpen, b.eyeOpen), bob: l(a.bob, b.bob), tilt: l(a.tilt, b.tilt) };
 }
 import { CORES, CoreShape, traceCore, traceFacets } from "./cores";
-import { traceBlob, blobAnchors, blobTopR, blobBotR } from "./blob";
+import { traceBlob, blobAnchors, blobTopR, blobBotR, exactSquareness, exactKeepsBumps } from "./blob";
 import { traceBlock, blockAnchors, blockEyeAnchor, traceBlockTorso, traceBlockHead, drawBlockBody, drawBlockEyes, applyHeadTransform } from "./block";
 import { LimbRig } from "./block-limbs";
 import { drawLens } from "./lens";
@@ -292,6 +292,11 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       emoteTilt += Math.sin(Math.PI * beat) * 0.15 * dance;
       emoteSquash -= Math.cos(2 * Math.PI * beat) * 0.07 * dance;
     }
+    // an exact edge has no ripple to keep it alive, so it breathes: a slow, slight
+    // stretch and settle, a little deeper while it listens and calmer under gravity
+    if (cfg.finish !== "soft" && state !== "away") {
+      emoteSquash += Math.sin(t * 1.25) * (state === "listening" ? 0.026 : 0.016) * (1 - 0.6 * grav);
+    }
     const emoteLidMul = Math.max(0.18, 1 - 0.7 * eTired - 0.55 * eAnnoy) * (1 - 0.3 * grav);
     const emoteSlant = -0.5 * eAngry + 0.35 * eSad;   // angry brows in, sad brows out
     const emoteGazeY = 0.8 * eSad - 0.6 * eAnnoy;    // sad looks down, annoyed rolls up
@@ -352,6 +357,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
     const finish = cfg.finish;
     const pop = finish !== "soft";
     const G = pop ? 0 : cfg.glow;
+    // the made finishes dress in one considered line: crafted defaults its accessories to
+    // ink (they sit on light grounds), light to white light; an explicit tone wins
+    const fineAcc = finish === "crafted" || finish === "light";
+    const accTone = cfg.accessoryTone ?? (finish === "crafted" ? T.coreDisc : finish === "light" ? "#ffffff" : null);
     let g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
     g.addColorStop(0, T.glow + Math.min(1, (0.16 + eyeOn * 0.12 + attn * 0.3) * G) + ")");
     g.addColorStop(1, T.glow + "0)");
@@ -511,7 +520,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         anchors: blockAnchors(cfg.build, bodyR, squash, grav, eye),
         eyeCX: eye.cx, ringR: eyeSize * 0.62,
         t, dark: T.coreDisc, accent: T.accent,
-        clipCloth, clipHead, colors: cfg.accessoryColors, tone: cfg.accessoryTone,
+        clipCloth, clipHead, colors: cfg.accessoryColors, tone: accTone, fine: fineAcc,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
       // glow halo + a real drop shadow: a block is always an object
@@ -574,12 +583,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // the glow fill, depth fill, gradient, bevel clip/stroke, and every
       // body-clipped accessory (was up to six full re-traces per frame)
       const bodyPath = new Path2D();
-      const squareEff = cfg.squareness + (1 - cfg.squareness) * 0.55 * grav;
-      // pop keeps the silhouette one clean curve: the edge ripple is off, so the
-      // outline moves only with squash, and the outline is smoothed so the kinks
-      // where the organic profile meets the faceted core (hardness) iron out while
-      // each body keeps its form
-      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, squareEff, hard, cfg.core, pop ? 0 : 1, pop ? 8 : 0);
+      // every finish but soft draws an exact silhouette: one clean superellipse per body
+      // (see exactSquareness) with no faceted core blended in, so the shape term below
+      // uses no hardness; hardness still stiffens the motion and the eyes
+      const exact = pop;
+      const shapeHard = exact ? 0 : hard;
+      const squareBase = exact ? exactSquareness(cfg.body, cfg.squareness, hard) : cfg.squareness;
+      // gravity squares a soft body's corners; an exact one only firms them a little
+      const squareEff = squareBase + (1 - squareBase) * (exact ? 0.12 : 0.55) * grav;
+      // the exact edge is still (no ripple: the outline moves only with squash)
+      traceBlob(bodyPath, cfg.body, bodyR, t, blobPhase, squash, squareEff, shapeHard, cfg.core,
+        exact ? 0 : 1, exact ? 2 : 0, !exact || exactKeepsBumps(cfg.body));
       // shared eye placement — the eye renderer and accessories (glasses,
       // headset) must agree on where the eyes are; computed before the body
       // paints so behind-layer accessories (capes) can use the same geometry
@@ -597,8 +611,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const coreOutline = CORES[cfg.core].outline;
       const coreTop = coreOutline ? -Math.min(...coreOutline.map((p) => p[1])) : 1;
       const coreBot = coreOutline ? Math.max(...coreOutline.map((p) => p[1])) : 1;
-      const topY = -(blobTopR(cfg.body, bodyR) * (1 - squash) * soft + coreTop * bodyR * hard);
-      const botY = blobBotR(cfg.body, bodyR) * (1 - squash) * soft + coreBot * bodyR * hard;
+      const shapeSoft = 1 - shapeHard;
+      const topY = -(blobTopR(cfg.body, bodyR) * (1 - squash) * shapeSoft + coreTop * bodyR * shapeHard);
+      const botY = blobBotR(cfg.body, bodyR) * (1 - squash) * shapeSoft + coreBot * bodyR * shapeHard;
       const eye = {
         cx: bodyR * EYEP.sx * cfg.eyeSpacing,
         cy: -bodyR * EYEP.sy * cfg.eyeRaise,
@@ -610,7 +625,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         anchors: blobAnchors(bodyR, topY, botY, eye),
         eyeCX: eye.cx, ringR: bodyR * EYEP.ring * Math.max(0.4, wide),
         t, dark: T.coreDisc, accent: T.accent,
-        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors, tone: cfg.accessoryTone,
+        clipCloth: bodyPath, clipHead: bodyPath, colors: cfg.accessoryColors, tone: accTone, fine: fineAcc,
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
 

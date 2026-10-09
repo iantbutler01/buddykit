@@ -49,11 +49,11 @@ for (let i = 0; i < N; i++) {
 // so the per-frame cost is just the wobble sines (matters when a gallery page
 // mounts dozens of rigs)
 const profileCache = new Map<string, Float64Array>();
-function staticProfile(body: BlobBody, squareness: number): Float64Array {
-  const key = body + "|" + squareness.toFixed(4);
+function staticProfile(body: BlobBody, squareness: number, bumps = true): Float64Array {
+  const key = body + "|" + squareness.toFixed(4) + (bumps ? "" : "|x");
   const hit = profileCache.get(key);
   if (hit) return hit;
-  const def = BODIES[body];
+  const def = bumps ? BODIES[body] : { ...BODIES[body], bumps: [] };
   const n = 2 + squareness * 10;
   const out = new Float64Array(N);
   for (let i = 0; i < N; i++) {
@@ -73,6 +73,28 @@ function staticProfile(body: BlobBody, squareness: number): Float64Array {
   profileCache.set(key, out);
   return out;
 }
+/**
+ * Exact silhouettes, for every finish but soft: each body is one clean superellipse —
+ * how square it sits is set per body and nudged up by hardness and squareness —
+ * instead of organic bumps blended into a faceted core. Only the bodies whose bumps ARE
+ * the shape (a droplet's point, a triangle's corners, a cloud's lobes) keep them.
+ * Values are in squareness units (superellipse exponent n = 2 + 10 · squareness).
+ */
+const EXACT_SQUARE: Record<BlobBody, number> = {
+  round: 0, droplet: 0.02, bean: 0.045, pebble: 0.02, squircle: 0.16, tri: 0.04, cloud: 0.03, hexy: 0.04,
+};
+const EXACT_KEEPS_BUMPS: ReadonlySet<BlobBody> = new Set(["droplet", "tri", "cloud"]);
+
+/** The exact silhouette's squareness for a body (see EXACT_SQUARE). */
+export function exactSquareness(body: BlobBody, squareness: number, hardness: number): number {
+  return Math.min(1, EXACT_SQUARE[body] + hardness * 0.05 + squareness * 0.4);
+}
+
+/** Whether a body's exact silhouette keeps its bumps. */
+export function exactKeepsBumps(body: BlobBody): boolean {
+  return EXACT_KEEPS_BUMPS.has(body);
+}
+
 const coreProfileCache = new Map<CoreShape, Float64Array>();
 function coreProfile(core: CoreShape): Float64Array {
   const hit = coreProfileCache.get(core);
@@ -90,7 +112,8 @@ function coreProfile(core: CoreShape): Float64Array {
  *  the outline then moves only with squash). smooth runs that many passes of a
  *  [¼ ½ ¼] filter around the outline: it irons out the kinks where the organic
  *  profile meets a faceted core while keeping the overall form (each pass shrinks
- *  a circle by about 0.1%). */
+ *  a circle by about 0.1%). bumps false drops the body's radial bumps (the exact
+ *  silhouettes keep only the bumps that are the shape — see exactKeepsBumps). */
 export function traceBlob(
   ctx: PathTarget,
   body: BlobBody,
@@ -103,10 +126,11 @@ export function traceBlob(
   core: CoreShape = "sphere",
   wobble = 1,
   smooth = 0,
+  bumps = true,
 ) {
   const def = BODIES[body];
   const soft = 1 - hardness;
-  const base = staticProfile(body, squareness);
+  const base = staticProfile(body, squareness, bumps);
   const cores = hardness > 0 ? coreProfile(core) : null;
   const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
   const kx = sx * (1 + squash * 0.5), ky = sy * (1 - squash);

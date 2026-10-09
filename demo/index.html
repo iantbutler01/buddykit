@@ -187,6 +187,8 @@
       <div class="g"><span class="l">Finish</span>
         <button class="fi" data-v="soft" aria-pressed="true">soft</button>
         <button class="fi" data-v="pop">pop</button>
+        <button class="fi" data-v="crafted">crafted</button>
+        <button class="fi" data-v="light">light</button>
         <span class="l">Accessory tone</span>
         <button class="tn" data-v="" aria-pressed="true">own colours</button>
         <button class="tn" data-v="#16181d">ink</button>
@@ -281,7 +283,9 @@
   press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
   press(".th", (v) => { buddy.setTheme(v); syncPalette(); });
-  press(".fi", (v) => buddy.configure({ finish: v }));
+  // a being of light is made for a dark ground
+  const stageFor = (f) => document.querySelector(".stage").style.background = f === "light" ? "#0b0b0f" : "";
+  press(".fi", (v) => { buddy.configure({ finish: v }); stageFor(v); });
   press(".tn", (v) => buddy.configure({ accessoryTone: v || null }));
   document.getElementById("accent").addEventListener("input", (e) => {
     document.querySelectorAll(".th").forEach((x) => x.setAttribute("aria-pressed", "false"));
@@ -431,6 +435,9 @@
     { name: "Oracle",   cls: "Construct · d20 core, one lens",        cfg: { species: "blob", body: "round", eyes: "lens", hardness: 1, core: "d20", shell: true, family: "tetra", theme: "indigo", gravity: 0.9, gradient: 0.4, seed: 77 } },
     { name: "Quiet",    cls: "Blob · slit eyes, gravity 0.7",         cfg: { species: "blob", body: "pebble", eyes: "slit", theme: "#5b5763", gravity: 0.7, gradient: 0.3, seed: 31 } },
     { name: "Quire",    cls: "Ghost · codex shell, spine core",      cfg: { species: "emblem", family: "codex", core: "spine", theme: "slate", gravity: 0.7, seed: 11 } },
+    { name: "Iris",     cls: "Crafted · violet, glasses + mortarboard", cfg: { species: "blob", body: "bean", eyes: "slit", eyeSize: 0.78, hardness: 0.45, core: "d12", finish: "crafted", theme: "pop-violet", accessories: ["mortarboard", "glasses"], seed: 404 } },
+    { name: "Wren",     cls: "Light · cobalt, headset + tie",         cfg: { species: "blob", body: "hexy", eyes: "slit", eyeSize: 0.78, hardness: 0.7, core: "gem", finish: "light", theme: "pop-cobalt", accessories: ["headset", "tie"], seed: 303 } },
+    { name: "Juno",     cls: "Crafted · pink, sunglasses + scarf",    cfg: { species: "blob", body: "bean", eyes: "slit", eyeSize: 0.78, hardness: 0.35, squareness: 0.2, core: "gem", finish: "crafted", theme: "pop-pink", accessories: ["scarf", "sunglasses"], seed: 202 } },
     { name: "Volt",     cls: "Pop · cobalt, white headset on neon",   cfg: { species: "blob", body: "hexy", eyes: "slit", eyeShift: 0.16, hardness: 0.7, core: "gem", finish: "pop", theme: "pop-cobalt", accessoryTone: "#ffffff", accessories: ["headset", "tie"], groove: 0.6, seed: 303 } },
     { name: "Pixie",    cls: "Pop · pink, ink sunglasses + scarf",    cfg: { species: "blob", body: "bean", eyes: "slit", eyeShift: 0.16, hardness: 0.35, core: "gem", finish: "pop", theme: "pop-pink", accessoryTone: "#16181d", accessories: ["scarf", "sunglasses"], seed: 202 } },
     { name: "Shadow",   cls: "Silhouette · ink body, white cap",      cfg: { species: "blob", body: "squircle", eyes: "slit", squareness: 0.35, hardness: 0.6, core: "cube", finish: "pop", theme: "pop-ink", accessoryTone: "#ffffff", accessories: ["hoodie", "cap"], groove: 1, seed: 101 } },
@@ -476,6 +483,7 @@
     pressGroup(".fam", cfg.family);
     pressGroup(".co", cfg.core);
     pressGroup(".fi", cfg.finish);
+    stageFor(cfg.finish);
     pressGroup(".tn", cfg.accessoryTone ?? "");
     document.querySelectorAll(".ac").forEach((b) =>
       b.setAttribute("aria-pressed", String(b.dataset.v === "none" ? cfg.accessories.length === 0 : cfg.accessories.includes(b.dataset.v))));

@@ -147,3 +147,54 @@ describe("accessory tone", () => {
     expect(new Set(details)).toEqual(new Set(["#ffffff"]));
   });
 });
+
+describe("made finishes (crafted, light)", () => {
+  it("accepts every finish and falls back to soft for anything else", async () => {
+    const { FINISHES } = await import("../src/config");
+    for (const f of FINISHES) expect(resolveConfig({ finish: f }).finish).toBe(f);
+    expect(FINISHES).toEqual(["soft", "pop", "crafted", "light"]);
+  });
+  it("exact silhouettes: a round body stays a circle, hardness and squareness only firm it", async () => {
+    const { exactSquareness, exactKeepsBumps } = await import("../src/blob");
+    expect(exactSquareness("round", 0, 0)).toBe(0);
+    expect(exactSquareness("squircle", 0, 0)).toBeGreaterThan(exactSquareness("round", 0, 0));
+    expect(exactSquareness("hexy", 0, 0.7)).toBeGreaterThan(exactSquareness("hexy", 0, 0));
+    expect(exactSquareness("bean", 1, 1)).toBeLessThanOrEqual(1);
+    // only the bodies whose bumps are the shape keep them
+    expect(exactKeepsBumps("cloud")).toBe(true);
+    expect(exactKeepsBumps("bean")).toBe(false);
+  });
+  it("an exact bean without bumps is symmetric left to right", () => {
+    const pts = recordOutline("bean", 100, 0, 0, 0, 0.05, 0, "sphere", 0, 2, false);
+    const xs = pts.map((p) => p[0]);
+    expect(Math.abs(Math.max(...xs) + Math.min(...xs))).toBeLessThan(0.5);
+  });
+});
+
+describe("fine accessories", () => {
+  function paints(name: Parameters<typeof drawAccessory>[1], extra: Partial<AccessoryGeom>) {
+    const { ctx, paints } = recordingContext();
+    const widths: number[] = [];
+    const spy = new Proxy(ctx as unknown as Record<string, unknown>, {
+      get(target, prop: string) { const v = (target as Record<string, unknown>)[prop]; if (prop === "stroke") return () => { widths.push(Number((target as Record<string, unknown>).lineWidth)); (v as () => void)(); }; return v; },
+      set(target, prop: string, value) { (target as Record<string, unknown>)[prop] = value; return true; },
+    }) as unknown as CanvasRenderingContext2D;
+    drawAccessory(spy, name, {
+      anchors: blobAnchors(100, -100, 100, { cy: -18, ox: 0, oy: 0 }),
+      eyeCX: 26, ringR: 24, t: 0, dark: POP_INK, accent: "#ff3d8b",
+      clipCloth: {} as Path2D, clipHead: {} as Path2D, ...extra,
+    }, 1);
+    return { paints, widths };
+  }
+  it("draws the glasses and the headset in a thinner, even line", () => {
+    for (const name of ["glasses", "headset"] as const) {
+      const classic = Math.max(...paints(name, {}).widths);
+      const fine = Math.max(...paints(name, { fine: true }).widths);
+      expect(fine, name).toBeLessThan(classic * 0.8);
+    }
+  });
+  it("the fine hoodie is the hem alone (no drawstrings)", () => {
+    expect(paints("hoodie", { fine: true }).paints.length).toBe(1);
+    expect(paints("hoodie", {}).paints.length).toBeGreaterThan(1);
+  });
+});

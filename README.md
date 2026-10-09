@@ -54,6 +54,18 @@ as before. `pop-ink` with a white `accessoryTone` is the silhouette: an ink figu
 whose hat, headset or scarf is the one bright thing on it. `fire("dance")` plays
 the full dance once on any species.
 
+### Crafted and light: made objects
+
+![crafted on a light ground, light on a dark one](docs/evidence/pop/crafted-and-light.png)
+
+`finish: "crafted"` is a made object: an exact silhouette (one clean curve per body),
+lit like soft-touch plastic from above and resting on a ground shadow, with ink eyes
+and a catchlight. `finish: "light"` is a being of light: its colour glows from inside
+with a halo of its own hue, and its eyes and accessories glow white; it is made for
+dark grounds. Both draw accessories in a finer, even line and default their colour
+(ink for crafted, white for light) unless `accessoryTone` says otherwise, and both
+breathe, since their edge is still.
+
 A buddy is deterministic from its config: `getConfig()` → JSON →
 `mountBuddy(canvas, cfg)` reproduces the identical character. `renderPosterPng`
 exports a static frame.
