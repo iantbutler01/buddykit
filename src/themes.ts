@@ -162,6 +162,12 @@ export function popTheme(hue: string): BuddyTheme {
   };
 }
 
+/** Blend two #rrggbb colours (t = 0 → a, 1 → b). Anything else comes back as a. */
+export function mixHex(a: string, b: string, t: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(a) || !/^#[0-9a-f]{6}$/i.test(b)) return a;
+  return mix(hexToRgb(a), hexToRgb(b), t);
+}
+
 /** Per-element color spec — plain hex everywhere; buddykit handles formats. */
 export interface ThemeSpec {
   /** start from a registered theme name or raw theme (default "ember") */

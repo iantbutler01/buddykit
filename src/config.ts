@@ -12,6 +12,10 @@ import { accessoryRank, type AccessoryName } from "./accessories";
  *
  *   mountBuddy(canvas, { family: "petal", core: "d20", bob: 1.4, blinkRate: 2 })
  */
+/** Surface finish: how the being's body is made. See BuddyConfig.finish. */
+export type Finish = "soft" | "pop" | "crafted" | "light";
+export const FINISHES: Finish[] = ["soft", "pop", "crafted", "light"];
+
 export interface BuddyConfig {
   // ---- identity ----
   /** visual species: geometric emblem, two-eyed blob, or stacked-slab block
@@ -86,8 +90,14 @@ export interface BuddyConfig {
    *  - "pop": one flat colour with a crisp, still edge and nothing around it — the
    *    bold-silhouette look. The edge ripple is off and the outline is smoothed, so
    *    a half-hard body keeps its shape without the faceted kinks; glow, sparkle,
-   *    gradient, the depth bevel and facet lines are all off (blob species) */
-  finish: "soft" | "pop";
+   *    gradient, the depth bevel and facet lines are all off (blob species)
+   *  - "crafted": a made object — the same exact edge as pop, lit like soft-touch
+   *    plastic from above (luminous top, deep base, a thin inner rim of light) and
+   *    resting on a contact shadow. Eyes are ink with a catchlight
+   *  - "light": a being made of light — the colour glows from inside, brightest low
+   *    in the body, fading to a deep edge, with a soft halo of its own hue; eyes and
+   *    accessories are light too. Made for dark grounds */
+  finish: Finish;
 
   // ---- motion (multipliers, 1 = reference) ----
   /** hover bob amplitude */
@@ -166,7 +176,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
   cfg.gravity = Math.max(0, Math.min(1, cfg.gravity));
   cfg.groove = Math.max(0, Math.min(1, cfg.groove));
-  cfg.finish = cfg.finish === "pop" ? "pop" : "soft";
+  cfg.finish = FINISHES.includes(cfg.finish) ? cfg.finish : "soft";
   cfg.accessoryTone = cfg.accessoryTone || null;
   cfg.accessoryColors = { ...cfg.accessoryColors };
   cfg.accessories = [...new Set(cfg.accessories)]

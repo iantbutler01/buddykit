@@ -8,7 +8,7 @@
  * approved reference feel.
  */
 import { Spring } from "./spring";
-import { BuddyTheme, resolveTheme } from "./themes";
+import { BuddyTheme, resolveTheme, mixHex } from "./themes";
 import { FAMILIES, FamilyName, PlateDef, shapePts, shapeDetail, shapeAccent } from "./families";
 import { type StateDef, STATES, EMOTES, DANCE_BPS, BuddyState, BuddyEvent } from "./states";
 
@@ -347,8 +347,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
 
     // ---- ambient glow ----
     const eyeOn = eyeScale.p * eyeLid.p;
-    // the pop finish is one flat colour with nothing around it: no bloom, halo or dust
-    const pop = cfg.finish === "pop";
+    // every finish but soft is an exact, still-edged body with nothing scattered round it:
+    // no bloom, dust, bevel, facet lines or gradient. Light makes its own glow (below).
+    const finish = cfg.finish;
+    const pop = finish !== "soft";
     const G = pop ? 0 : cfg.glow;
     let g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
     g.addColorStop(0, T.glow + Math.min(1, (0.16 + eyeOn * 0.12 + attn * 0.3) * G) + ")");
@@ -612,11 +614,55 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       };
       for (const a of cfg.accessories) if (accessoryLayer(a) === "behind") drawAccessory(ctx, a, geom, DPR);
 
-      // flat saturated body — the accent IS the being (clean, no outline/shading)
-      ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
-      ctx.shadowBlur = 18 * DPR * G;
-      ctx.fillStyle = T.accent; ctx.fill(bodyPath);
-      ctx.shadowBlur = 0;
+      if (finish === "crafted") {
+        // a made object resting on something: a contact shadow on the ground that
+        // tightens and fades as the body lifts away from it (drawn in canvas space so
+        // it stays on the floor while the body hops, tilts and bobs above it)
+        const lift = Math.max(0, -(bodyY.p + emoteHop)) / bodyR;
+        const groundY = cy + blobBotR(cfg.body, bodyR) + bodyR * 0.12;
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const spread = bodyR * 0.95 * (1 - Math.min(0.35, lift * 0.6));
+        const sh = ctx.createRadialGradient(cx, groundY, 0, cx, groundY, spread);
+        sh.addColorStop(0, `rgba(12,14,24,${0.3 * (1 - Math.min(0.6, lift))})`);
+        sh.addColorStop(1, "rgba(12,14,24,0)");
+        ctx.translate(cx, groundY); ctx.scale(1, 0.16); ctx.translate(-cx, -groundY);
+        ctx.fillStyle = sh; ctx.beginPath(); ctx.arc(cx, groundY, spread, 0, 7); ctx.fill();
+        ctx.restore();
+        // soft-touch plastic lit from above: luminous top, true colour through the
+        // middle, a deeper base
+        const body = ctx.createLinearGradient(0, topY, 0, botY);
+        body.addColorStop(0, mixHex(T.accent, "#ffffff", 0.2));
+        body.addColorStop(0.55, T.accent);
+        body.addColorStop(1, mixHex(T.accent, "#000000", 0.24));
+        ctx.fillStyle = body; ctx.fill(bodyPath);
+        // a thin inner rim of light where the surface turns away
+        ctx.save(); ctx.clip(bodyPath);
+        ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.lineWidth = bodyR * 0.07;
+        ctx.stroke(bodyPath);
+        ctx.restore();
+      } else if (finish === "light") {
+        // a being of light: a halo of its own hue, then a body that glows from inside,
+        // brightest low in the body and deepening to its edge
+        const halo = ctx.createRadialGradient(0, 0, bodyR * 0.3, 0, 0, bodyR * 1.9);
+        halo.addColorStop(0, T.glow + ".42)");
+        halo.addColorStop(1, T.glow + "0)");
+        ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, bodyR * 1.9, 0, 7); ctx.fill();
+        const core = ctx.createRadialGradient(0, botY * 0.25, bodyR * 0.05, 0, 0, bodyR * 1.15);
+        core.addColorStop(0, mixHex(T.accent, "#ffffff", 0.55));
+        core.addColorStop(0.5, T.accent);
+        core.addColorStop(1, mixHex(T.accent, "#000000", 0.3));
+        ctx.save();
+        ctx.shadowColor = T.glow + ".9)"; ctx.shadowBlur = bodyR * 0.45;
+        ctx.fillStyle = core; ctx.fill(bodyPath);
+        ctx.restore();
+      } else {
+        // flat saturated body — the accent IS the being (clean, no outline/shading)
+        ctx.shadowColor = T.glow + Math.min(1, 0.25 * G) + ")";
+        ctx.shadowBlur = 18 * DPR * G;
+        ctx.fillStyle = T.accent; ctx.fill(bodyPath);
+        ctx.shadowBlur = 0;
+      }
       // depth — a body among orbiting objects (or a hard one) must read as an
       // object itself: soft drop shadow + inner rim bevel; pure blobs stay flat
       const depth = pop ? 0 : Math.max(cfg.shell ? 0.7 : 0, hard * 0.7);
@@ -657,6 +703,13 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         ctx.stroke();
       }
 
+      // in light, the features are light too: they carry a soft white glow
+      const glowFeatures = () => {
+        if (finish !== "light") return;
+        ctx.shadowColor = "rgba(255,255,255,.85)"; ctx.shadowBlur = bodyR * 0.16;
+      };
+      const unglow = () => { ctx.shadowBlur = 0; };
+      glowFeatures();
       for (const a of cfg.accessories) if (accessoryLayer(a) === "back") drawAccessory(ctx, a, geom, DPR);
 
       // two eyes — style per cfg.eyes; lid blinks; shared saccades.
@@ -665,6 +718,15 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       const eyeStyle: typeof cfg.eyes | "sadarc" =
         cfg.eyes === "lens" ? "lens" : eJoy > 0.45 ? "arc" : eSad > 0.45 ? "sadarc" : cfg.eyes;
       const eyeRot = (cfg.eyeAngle * Math.PI) / 180;
+      // crafted eyes are ink with a catchlight, like a made object's painted face;
+      // every other finish keeps white eyes (light ones glow, set above)
+      const inkEyes = finish === "crafted";
+      const eyeCol = inkEyes ? T.coreDisc : "#ffffff";
+      const catchlight = (w: number, h: number) => {
+        if (!inkEyes) return;
+        ctx.beginPath(); ctx.arc(w * 0.18, -h * 0.22, Math.min(w, h) * 0.2, 0, 7);
+        ctx.fillStyle = "rgba(255,255,255,.92)"; ctx.fill();
+      };
       if (eyeOn > 0.01 || state === "away") {
         const ap = Math.max(0.06, eyeLid.p * emoteLidMul);
         const closed = state === "away" || ap < 0.12;
@@ -674,7 +736,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         const sleepArc = (er: number) => {
           ctx.beginPath();
           ctx.arc(0, 0, er, 0.15 * Math.PI, 0.85 * Math.PI);
-          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.6 * DPR; ctx.lineCap = "round";
+          ctx.strokeStyle = eyeCol; ctx.lineWidth = 2.6 * DPR; ctx.lineCap = "round";
           ctx.stroke();
         };
         if (eyeStyle === "lens") {
@@ -730,7 +792,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.rotate(sgn * (0.06 * soft + eyeRot + emoteSlant));
             ctx.beginPath();
             ctx.roundRect(-ew / 2, -eh / 2, ew, eh, rr);
-            ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.fillStyle = eyeCol; ctx.fill();
+            catchlight(ew, eh);
             ctx.restore();
           }
         } else if (eyeStyle === "dot") {
@@ -746,7 +809,8 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.rotate(sgn * (eyeRot + emoteSlant));
             ctx.beginPath();
             ctx.roundRect(-er, -er, er * 2, er * 2, rr);
-            ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.fillStyle = eyeCol; ctx.fill();
+            catchlight(er * 2, er * 2);
             ctx.restore();
           }
         } else if (eyeStyle === "arc" || eyeStyle === "sadarc") {
@@ -768,7 +832,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.rotate(sgn * (restRot + emoteSlant));
             ctx.beginPath();
             ctx.arc(0, er * 0.45, er, Math.PI * 1.12, Math.PI * 1.88);
-            ctx.strokeStyle = "#ffffff";
+            ctx.strokeStyle = eyeCol;
             ctx.lineWidth = bodyR * 0.055 * wide;
             ctx.lineCap = "round";
             ctx.stroke();
@@ -785,7 +849,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
             ctx.scale(1, ap);
             ctx.beginPath();
             ctx.arc(0, 0, er, 0, 7);
-            ctx.strokeStyle = "#ffffff";
+            ctx.strokeStyle = eyeCol;
             ctx.lineWidth = bodyR * 0.05 * wide;
             ctx.stroke();
             ctx.restore();
@@ -810,6 +874,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         }
       }
       for (const a of cfg.accessories) if (accessoryLayer(a) === "front") drawAccessory(ctx, a, geom, DPR);
+      unglow();
       ctx.restore();
       if (!reduced) raf = requestAnimationFrame(frame);
       return;
