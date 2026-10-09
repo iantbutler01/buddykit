@@ -19,7 +19,7 @@ export const FINISHES: Finish[] = ["soft", "pop", "crafted", "light"];
 export interface BuddyConfig {
   // ---- identity ----
   /** visual species: geometric emblem, two-eyed blob, or stacked-slab block
-   *  (default "emblem"). Everything else — hardness, shell ring, accessories —
+   *  (default "blob"). Everything else — hardness, shell ring, accessories —
    *  mixes freely. */
   species: "emblem" | "blob" | "block";
   /** orbit the emblem's plate shell around the blob body (default false) */
@@ -34,7 +34,7 @@ export interface BuddyConfig {
   body: BlobBody;
   /** slab proportions — block species (default "stout") */
   build: BlockBuild;
-  /** eye style — blob species (default "googly") */
+  /** eye style — blob species (default "slit") */
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
   core: CoreShape;
@@ -48,7 +48,7 @@ export interface BuddyConfig {
    *  still win, and details switch to whichever of ink or white contrasts with it.
    *  null keeps each accessory's own doctrine colour (default null) */
   accessoryTone: string | null;
-  /** registered theme name, or a raw BuddyTheme color object (default "ember") */
+  /** registered theme name, or a raw BuddyTheme color object (default "pop-cobalt") */
   theme: ThemeInput;
   /** resting shell spread 0..1 — trust posture (strict .15 / standard .35 / high .55) */
   trust: number;
@@ -84,7 +84,7 @@ export interface BuddyConfig {
   glow: number;
   /** pixie-dust emission rate (0 = off) */
   sparkle: number;
-  /** surface finish (default "soft"):
+  /** surface finish (default "crafted"):
    *  - "soft": the reference look — ambient glow, bloom, pixie dust, depth bevel,
    *    facet lines and the gradient setting
    *  - "pop": one flat colour with a crisp, still edge and nothing around it — the
@@ -121,18 +121,18 @@ export interface BuddyConfig {
 }
 
 export const DEFAULT_CONFIG: BuddyConfig = {
-  species: "emblem",
+  species: "blob",
   shell: false,
   hardness: 0,
   family: "tetra",
   body: "round",
   build: "stout",
-  eyes: "googly",
+  eyes: "slit",
   core: "sphere",
   accessories: [],
   accessoryColors: {},
   accessoryTone: null,
-  theme: "ember",
+  theme: "pop-cobalt",
   trust: 0.35,
   seed: 42,
 
@@ -149,7 +149,7 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   gravity: 0,
   glow: 1,
   sparkle: 1,
-  finish: "soft",
+  finish: "crafted",
 
   bob: 1,
   tiltiness: 1,
@@ -176,7 +176,7 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
   cfg.gravity = Math.max(0, Math.min(1, cfg.gravity));
   cfg.groove = Math.max(0, Math.min(1, cfg.groove));
-  cfg.finish = FINISHES.includes(cfg.finish) ? cfg.finish : "soft";
+  cfg.finish = FINISHES.includes(cfg.finish) ? cfg.finish : DEFAULT_CONFIG.finish;
   cfg.accessoryTone = cfg.accessoryTone || null;
   cfg.accessoryColors = { ...cfg.accessoryColors };
   cfg.accessories = [...new Set(cfg.accessories)]

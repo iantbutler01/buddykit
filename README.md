@@ -15,7 +15,7 @@ import { mountBuddy } from "@metonymous/buddykit";
 
 const buddy = mountBuddy(canvasEl, {
   species: "blob",        // "emblem" (ghost) | "blob" (soft, two-eyed) | "block" (stacked slabs)
-  body: "round", eyes: "googly", theme: "ember",   // eyes also: slit | glint | dot | arc | ring | lens (one optic)
+  body: "round", eyes: "slit", theme: "pop-cobalt",   // eyes also: googly | glint | dot | arc | ring | lens (one optic)
   build: "stout",         // block species: stout | tall | wide | mini | long | sentinel
   family: "tetra",        // emblem shell: tetra | octa | ring | petal | shard | prism | codex (open book) | fan (peacock tail)
   core: "sphere",         // emblem core: sphere | d20 | cube | d12 | gem | spine (a book's binding)
@@ -49,8 +49,9 @@ mountBuddy(canvasEl, {
 });
 ```
 
-`finish` defaults to `"soft"`, the reference look, so existing configs render
-as before. `pop-ink` with a white `accessoryTone` is the silhouette: an ink figure
+`finish` defaults to `"crafted"`. With no config at all you get the Nym-site look:
+a crafted `pop-cobalt` blob with slit ink eyes. Configs that set `eyes` or `theme`
+keep them; pass `finish: "soft"` for the original glowing look. `pop-ink` with a white `accessoryTone` is the silhouette: an ink figure
 whose hat, headset or scarf is the one bright thing on it. `fire("dance")` plays
 the full dance once on any species.
 

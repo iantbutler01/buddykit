@@ -24,6 +24,9 @@ import { drawLens } from "./lens";
 import { drawAccessory, accessoryLayer, accessoryRidesHead, type AccessoryGeom } from "./accessories";
 import { BuddyConfig, DEFAULT_CONFIG, resolveConfig } from "./config";
 
+/** crafted finish eye scale at eyeSize 1 — the approved Nym-site proportion */
+const CRAFTED_EYE = 0.78;
+
 export interface BuddyMountOptions extends Partial<BuddyConfig> {
   /** render a single static frame; re-render on changes */
   reducedMotion?: boolean;
@@ -614,8 +617,10 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
       // paints so behind-layer accessories (capes) can use the same geometry
       const exOff = eyeX.p * bodyR * 0.1, eyOff = (eyeY.p + emoteGazeY) * bodyR * 0.1;
       const shiftX = cfg.eyeShift * bodyR * 0.3;
+      // crafted eyes sit smaller: ink features read as made, not cartoon
+      const eyeK = cfg.eyeSize * (finish === "crafted" ? CRAFTED_EYE : 1);
       // lower clamp guards spring overshoot below zero (negative radii throw)
-      const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * cfg.eyeSize;
+      const wide = Math.max(0.001, Math.min(1.25, eyeScale.p * (1 + attn * 0.18))) * eyeK;
       const EYEP = cfg.eyes === "googly" ? { sx: 0.38, sy: 0.18, f: 0.4, ring: 0.37 }
         : cfg.eyes === "slit" ? { sx: 0.26, sy: 0.2, f: 1, ring: 0.29 }
         : cfg.eyes === "dot" ? { sx: 0.3, sy: 0.16, f: 0.8, ring: 0.24 }
@@ -776,7 +781,7 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         const closed = state === "away" || ap < 0.12;
         // closed-lid radius must not scale with the eye-open spring — away
         // drives eyeScale to 0 and the arcs would vanish with it
-        const restR = bodyR * 0.24 * cfg.eyeSize;
+        const restR = bodyR * 0.24 * eyeK;
         const sleepArc = (er: number) => {
           ctx.beginPath();
           ctx.arc(0, 0, er, 0.15 * Math.PI, 0.85 * Math.PI);

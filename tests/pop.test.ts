@@ -30,8 +30,11 @@ function maxBend(pts: [number, number][]) {
 const meanRadius = (pts: [number, number][]) => pts.reduce((s, p) => s + Math.hypot(p[0], p[1]), 0) / pts.length;
 
 describe("pop config", () => {
-  it("defaults keep the reference look: soft finish, no groove, no tone", () => {
-    expect(DEFAULT_CONFIG.finish).toBe("soft");
+  it("defaults are the Nym-site look: a crafted blue blob with slit eyes, no groove, no tone", () => {
+    expect(DEFAULT_CONFIG.finish).toBe("crafted");
+    expect(DEFAULT_CONFIG.species).toBe("blob");
+    expect(DEFAULT_CONFIG.eyes).toBe("slit");
+    expect(DEFAULT_CONFIG.theme).toBe("pop-cobalt");
     expect(DEFAULT_CONFIG.groove).toBe(0);
     expect(DEFAULT_CONFIG.accessoryTone).toBeNull();
     expect(resolveConfig()).toEqual(DEFAULT_CONFIG);
@@ -39,8 +42,9 @@ describe("pop config", () => {
   it("clamps groove, rejects unknown finishes and treats an empty tone as none", () => {
     const c = resolveConfig({ groove: 3, finish: "matte" as never, accessoryTone: "" });
     expect(c.groove).toBe(1);
-    expect(c.finish).toBe("soft");
+    expect(c.finish).toBe("crafted");
     expect(c.accessoryTone).toBeNull();
+    expect(resolveConfig({ finish: "soft" }).finish).toBe("soft");
     expect(resolveConfig({ groove: -1, finish: "pop" }).groove).toBe(0);
     expect(resolveConfig({ finish: "pop" }).finish).toBe("pop");
   });
