@@ -104,6 +104,42 @@ export interface AccessoryGeom {
   clipHead: Path2D;
   /** per-accessory primary-color overrides (cfg.accessoryColors) */
   colors?: Partial<Record<AccessoryName, string>>;
+  /** one primary colour for every accessory (cfg.accessoryTone); per-accessory colors win */
+  tone?: string | null;
+  /** the finish's own default tone (crafted ink, light white), used when no tone is set.
+   *  Unlike an explicit tone it leaves alone the accessories whose colour is the point */
+  defaultTone?: string | null;
+  /** the refined drawing the crafted and light finishes use: one even, thinner line
+   *  weight and slimmer forms, so an accessory reads as a considered detail, not a prop */
+  fine?: boolean;
+}
+
+/** Accessories whose colour is the point: a finish's default tone leaves them be. */
+const KEEPS_COLOUR: ReadonlySet<AccessoryName> = new Set(["hardhat", "santa"]);
+
+/** Relative luminance above the midpoint: ink details read on it, white ones do not. */
+function isLight(color: string): boolean {
+  const m = color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return false;
+  const h = m[1].length === 3 ? m[1].split("").map((c) => c + c).join("") : m[1];
+  const n = parseInt(h, 16);
+  const lin = (v: number) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const y = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return y > 0.4;
+}
+
+/**
+ * The outline of cloth wrapped round a body, seen from just above: top and bottom
+ * edges bow down at the front by sag. halfW should overshoot the body — the cloth
+ * clip trims the band to the silhouette.
+ */
+function wrapBand(ctx: CanvasRenderingContext2D, cx: number, top: number, bottom: number, halfW: number, sag: number) {
+  ctx.beginPath();
+  ctx.moveTo(cx - halfW, top);
+  ctx.quadraticCurveTo(cx, top + 2 * sag, cx + halfW, top);
+  ctx.lineTo(cx + halfW, bottom);
+  ctx.quadraticCurveTo(cx, bottom + 2 * sag, cx - halfW, bottom);
+  ctx.closePath();
 }
 
 export function drawAccessory(
@@ -117,7 +153,18 @@ export function drawAccessory(
   const u = a.r;      // width unit of the part being worn
   const d = a.drop;   // room below the anchor
   const { t } = g;
-  const co = g.colors?.[name];   // primary-color override; details keep doctrine colors
+  const own = g.colors?.[name];
+  // an explicit tone dresses everything; a finish's default tone skips the accessories
+  // whose colour is their identity (a hardhat is yellow, a Santa hat red)
+  const tone = g.tone ?? (g.defaultTone && !KEEPS_COLOUR.has(name) ? g.defaultTone : null);
+  const toned = !own && !!tone;
+  const co = own ?? (toned ? tone! : undefined);   // primary colour override
+  // Details keep their doctrine colours (white sparks, theme-dark cut-outs), except on a
+  // toned accessory: there the details take whichever of white and theme-dark contrasts
+  // with the tone, or a white hoodie's white drawstrings would vanish.
+  const toneLight = toned && isLight(tone!);
+  const hi = toneLight ? g.dark : "#ffffff";
+  const lo = toned && !toneLight ? "#ffffff" : g.dark;
   ctx.save();
   ctx.fillStyle = co ?? "#ffffff";
   ctx.strokeStyle = co ?? "#ffffff";
@@ -181,22 +228,23 @@ export function drawAccessory(
     // the band arcs from cup to cup over the top of the head
     const cupY = a.y, cupX = a.x;
     const bandH = cupY - g.anchors.headTop.y + u * 0.06;
-    ctx.lineWidth = u * 0.07;
+    ctx.lineWidth = u * (g.fine ? 0.04 : 0.07);
     ctx.beginPath();
     ctx.ellipse(0, cupY, cupX, bandH, 0, Math.PI, 0);
     ctx.stroke();
     for (const sgn of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(sgn * cupX, cupY, u * 0.11, u * 0.2, 0, 0, 7);
+      if (g.fine) ctx.roundRect(sgn * cupX - u * 0.065, cupY - u * 0.15, u * 0.13, u * 0.3, u * 0.065);
+      else ctx.ellipse(sgn * cupX, cupY, u * 0.11, u * 0.2, 0, 0, 7);
       ctx.fill();
     }
     // mic boom from the left cup to mouth level
-    ctx.lineWidth = u * 0.045;
+    ctx.lineWidth = u * (g.fine ? 0.03 : 0.045);
     ctx.beginPath();
     ctx.moveTo(-cupX + u * 0.04, cupY + u * 0.14);
     ctx.quadraticCurveTo(-u * 0.75, cupY + u * 0.62, -u * 0.3, cupY + u * 0.58);
     ctx.stroke();
-    ctx.beginPath(); ctx.arc(-u * 0.27, cupY + u * 0.58, u * 0.07, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-u * 0.27, cupY + u * 0.58, u * (g.fine ? 0.045 : 0.07), 0, 7); ctx.fill();
   } else if (name === "hardhat") {
     ctx.translate(a.x, a.y + u * 0.12);
     ctx.fillStyle = co ?? "#f5c542";
@@ -218,34 +266,52 @@ export function drawAccessory(
     ctx.translate(a.x, a.y - d * 0.2);
     ctx.rotate(sway);
     ctx.fillStyle = co ?? g.dark;
-    const kw = u * 0.155, kh = d * 0.24;
+    const kw = u * (g.fine ? 0.11 : 0.155), kh = d * (g.fine ? 0.18 : 0.24);
     ctx.beginPath();
     ctx.moveTo(-kw, 0); ctx.lineTo(kw, 0); ctx.lineTo(kw * 0.7, kh); ctx.lineTo(-kw * 0.7, kh);
     ctx.closePath(); ctx.fill();
     ctx.beginPath();
     ctx.moveTo(-kw * 0.7, kh);
     ctx.lineTo(kw * 0.7, kh);
-    ctx.lineTo(kw * 1.15, kh + d * 0.68);
-    ctx.lineTo(0, kh + d * 0.92);
-    ctx.lineTo(-kw * 1.15, kh + d * 0.68);
+    const blade = g.fine ? 0.72 : 1;
+    ctx.lineTo(kw * 1.15, kh + d * 0.68 * blade);
+    ctx.lineTo(0, kh + d * 0.92 * blade);
+    ctx.lineTo(-kw * 1.15, kh + d * 0.68 * blade);
     ctx.closePath(); ctx.fill();
   } else if (name === "scarf") {
-    // ninja wrap: a band from the collar down, clipped to the cloth region —
-    // cloth must follow the silhouette (and never be a stroked arc: that reads
-    // as a mouth)
+    // a wrap round the collar, clipped to the cloth region: it spans the body's
+    // full width (the clip trims it to the silhouette) so it reads as going round,
+    // and its edges bow down at the front as a band round a body seen from just
+    // above does. It is a collar, not a coat: only collar-deep, or the clip paints
+    // the whole torso — and a narrow patch floating mid-body reads as a mask.
+    // (Never a stroked arc: that reads as a mouth.)
+    const depth = Math.min(d, u * (g.fine ? 0.17 : 0.34));
     ctx.save();
     ctx.clip(g.clipCloth);
     ctx.fillStyle = co ?? g.dark;
-    // the wrap is a collar, not a coat: as wide as the neck it goes round and only
-    // as deep as the collar zone, or the clip simply paints the whole torso
-    ctx.fillRect(a.x - u * 0.62, a.y, u * 1.24, d);
+    wrapBand(ctx, a.x, a.y, a.y + depth, u * 1.6, u * 0.09);
+    ctx.fill();
     ctx.restore();
-    // knot + trailing tails on the right
     ctx.fillStyle = co ?? g.dark;
-    const kx = a.x + u * 0.42, ky = a.y + d * 0.42;
-    ctx.beginPath(); ctx.arc(kx, ky, u * 0.11, 0, 7); ctx.fill();
+    if (g.fine) {
+      // the fine scarf is a neckerchief: the thin band plus a soft point hanging at the
+      // front — a band alone, low on a blob, reads as a belt
+      const top = a.y + u * 0.09, sway = Math.sin(t * 1.7) * u * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(a.x - u * 0.2, top);
+      ctx.lineTo(a.x + u * 0.2, top);
+      ctx.quadraticCurveTo(a.x + u * 0.08 + sway, top + u * 0.2, a.x + sway, top + u * 0.3);
+      ctx.quadraticCurveTo(a.x - u * 0.08 + sway, top + u * 0.2, a.x - u * 0.2, top);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      return;
+    }
+    // knot + trailing tails on the right
+    const kx = a.x + u * 0.42, ky = a.y + depth * 0.62;
+    const tail = g.fine ? 0.62 : 1;
+    ctx.beginPath(); ctx.arc(kx, ky, u * 0.11 * tail, 0, 7); ctx.fill();
     const flap = Math.sin(t * 2.1) * 0.08;
-    for (const [ang, len] of [[0.55 + flap, 0.34], [0.95 + flap * 0.6, 0.28]] as [number, number][]) {
+    for (const [ang, len] of [[0.55 + flap, 0.34 * tail], [0.95 + flap * 0.6, 0.28 * tail]] as [number, number][]) {
       ctx.save();
       ctx.translate(kx, ky);
       ctx.rotate(ang);
@@ -259,10 +325,11 @@ export function drawAccessory(
   } else if (name === "shirt") {
     // shirt front: a white band over the chest, clipped to the cloth region —
     // anything floating mid-face reads as a mouth/mustache
-    const cy = a.y + d * 0.24;
+    const cy = a.y + d * (g.fine ? 0.5 : 0.24);
     ctx.save();
     ctx.clip(g.clipCloth);
-    ctx.fillRect(a.x - u * 1.6, cy, u * 3.2, d + u * 1.6);
+    if (g.fine) { wrapBand(ctx, a.x, cy, a.y + d + u * 1.6, u * 1.6, u * 0.08); ctx.fill(); }
+    else ctx.fillRect(a.x - u * 1.6, cy, u * 3.2, d + u * 1.6);
     // V neck opening in body color — narrow, so a layered tie fully covers it
     ctx.fillStyle = g.accent;
     ctx.beginPath();
@@ -274,12 +341,18 @@ export function drawAccessory(
   } else if (name === "hoodie") {
     // dark hood collar clipped to the cloth region (never a stroked arc — that
     // reads as a mouth) + white drawstrings inside it
+    // the hem bows down at the front like the scarf's band, so the hoodie wraps
+    // the body instead of cutting straight across it
     ctx.save();
     ctx.clip(g.clipCloth);
     ctx.fillStyle = co ?? g.dark;
-    ctx.fillRect(a.x - u * 1.6, a.y + d * 0.28, u * 3.2, d + u * 1.6);
+    wrapBand(ctx, a.x, a.y + d * (g.fine ? 0.5 : 0.28), a.y + d + u * 1.6, u * 1.6, u * 0.08);
+    ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = "#ffffff";
+    // the fine hoodie is the hem alone: its drawstrings at that weight read as brackets
+    if (g.fine) { ctx.restore(); return; }
+    ctx.strokeStyle = hi;
+    ctx.fillStyle = hi;
     ctx.lineWidth = u * 0.035;
     const sway = Math.sin(t * 1.8) * 0.04;
     for (const sgn of [-1, 1]) {
@@ -293,13 +366,20 @@ export function drawAccessory(
     // baseball cap: dark dome + forward brim + white button
     ctx.translate(a.x, a.y + u * 0.08);
     ctx.fillStyle = co ?? g.dark;
+    if (g.fine) {
+      // fine: a tighter crown and a slim, crisp brim; no button
+      ctx.beginPath(); ctx.ellipse(0, 0, u * 0.4, u * 0.25, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(u * 0.12, -u * 0.035, u * 0.52, u * 0.07, u * 0.035); ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.beginPath();
     ctx.ellipse(0, 0, u * 0.46, u * 0.3, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
     ctx.beginPath();
     ctx.ellipse(u * 0.42, 0, u * 0.32, u * 0.075, -0.06, 0, 7);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.beginPath(); ctx.arc(0, -u * 0.3, u * 0.05, 0, 7); ctx.fill();
   } else if (name === "ears") {
     // cat ears: body-color triangles with dark inner ear, twitch on the sway
@@ -311,7 +391,7 @@ export function drawAccessory(
       ctx.beginPath();
       ctx.moveTo(-u * 0.17, 0); ctx.lineTo(u * 0.17, 0); ctx.lineTo(0, -u * 0.36);
       ctx.closePath(); ctx.fill();
-      ctx.fillStyle = g.dark;
+      ctx.fillStyle = lo;
       ctx.beginPath();
       ctx.moveTo(-u * 0.08, -u * 0.03); ctx.lineTo(u * 0.08, -u * 0.03); ctx.lineTo(0, -u * 0.24);
       ctx.closePath(); ctx.fill();
@@ -325,7 +405,7 @@ export function drawAccessory(
       ctx.rotate(sgn * 0.14 + Math.sin(t * 1.3 + sgn * 2) * 0.05);
       ctx.fillStyle = co ?? g.accent;
       ctx.beginPath(); ctx.ellipse(0, -u * 0.34, u * 0.115, u * 0.4, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = hi;
       ctx.globalAlpha = 0.85;
       ctx.beginPath(); ctx.ellipse(0, -u * 0.32, u * 0.05, u * 0.26, 0, 0, 7); ctx.fill();
       ctx.restore();
@@ -345,6 +425,15 @@ export function drawAccessory(
   } else if (name === "toque") {
     // chef hat: white band + three puff lobes
     ctx.translate(a.x, a.y + u * 0.06);
+    if (g.fine) {
+      // fine: a slimmer band under one soft crown (three lobes merged into a cloud)
+      ctx.beginPath(); ctx.roundRect(-u * 0.24, -u * 0.1, u * 0.48, u * 0.11, u * 0.04); ctx.fill();
+      for (const [dx, r] of [[-0.15, 0.12], [0, 0.15], [0.15, 0.12]] as [number, number][]) {
+        ctx.beginPath(); ctx.arc(u * dx, -u * (0.17 + r * 0.45), u * r, 0, 7); ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
     ctx.beginPath(); ctx.roundRect(-u * 0.3, -u * 0.14, u * 0.6, u * 0.16, u * 0.03); ctx.fill();
     for (const [dx, r] of [[-0.2, 0.15], [0, 0.18], [0.2, 0.15]] as [number, number][]) {
       ctx.beginPath(); ctx.arc(u * dx, -u * (0.2 + r * 0.5), u * r, 0, 7); ctx.fill();
@@ -353,6 +442,19 @@ export function drawAccessory(
     // graduation cap: dark diamond board + swaying tassel
     ctx.translate(a.x, a.y + u * 0.04);
     ctx.fillStyle = co ?? g.dark;
+    if (g.fine) {
+      // fine: a flatter board seen nearly edge-on, a small crown, a hairline tassel
+      ctx.beginPath(); ctx.ellipse(0, u * 0.02, u * 0.28, u * 0.1, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-u * 0.5, -u * 0.05); ctx.lineTo(0, -u * 0.16); ctx.lineTo(u * 0.5, -u * 0.05); ctx.lineTo(0, u * 0.05);
+      ctx.closePath(); ctx.fill();
+      const sw = Math.sin(t * 1.6) * 0.04;
+      ctx.strokeStyle = co ?? g.dark; ctx.lineWidth = u * 0.022;
+      ctx.beginPath(); ctx.moveTo(0, -u * 0.06); ctx.quadraticCurveTo(u * (0.36 + sw), -u * 0.03, u * (0.42 + sw), u * 0.14); ctx.stroke();
+      ctx.beginPath(); ctx.arc(u * (0.42 + sw), u * 0.18, u * 0.04, 0, 7); ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.beginPath();
     ctx.ellipse(0, u * 0.02, u * 0.34, u * 0.14, 0, Math.PI, 0);
     ctx.closePath(); ctx.fill();
@@ -361,7 +463,7 @@ export function drawAccessory(
     ctx.lineTo(u * 0.58, -u * 0.06); ctx.lineTo(0, u * 0.1);
     ctx.closePath(); ctx.fill();
     const sw = Math.sin(t * 1.6) * 0.06;
-    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = u * 0.03;
+    ctx.strokeStyle = hi; ctx.lineWidth = u * 0.03;
     ctx.beginPath();
     ctx.moveTo(0, -u * 0.07);
     ctx.quadraticCurveTo(u * (0.42 + sw), -u * 0.02, u * (0.5 + sw), u * 0.2);
@@ -381,16 +483,16 @@ export function drawAccessory(
     ctx.moveTo(a.x + u * 0.3, a.y - rise);
     ctx.quadraticCurveTo(a.x + u * 0.26, a.y + d * 0.107, a.x + u * 0.09, a.y + d * 0.321);
     ctx.stroke();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.beginPath(); ctx.arc(a.x + u * 0.07, a.y + d * 0.429, u * 0.1, 0, 7); ctx.fill();
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = lo;
     ctx.beginPath(); ctx.arc(a.x + u * 0.07, a.y + d * 0.429, u * 0.055, 0, 7); ctx.fill();
   } else if (name === "badge") {
     // clip-on ID: white card, dark photo square + clip
     ctx.translate(a.x + u * 0.46, a.y);
     ctx.rotate(0.06 + Math.sin(t * 1.4) * 0.02);
     ctx.beginPath(); ctx.roundRect(-u * 0.09, -u * 0.11, u * 0.18, u * 0.22, u * 0.02); ctx.fill();
-    ctx.fillStyle = g.dark;
+    ctx.fillStyle = lo;
     ctx.fillRect(-u * 0.055, -u * 0.07, u * 0.07, u * 0.07);
     ctx.fillRect(-u * 0.055, u * 0.03, u * 0.11, u * 0.018);
     ctx.fillRect(-u * 0.02, -u * 0.135, u * 0.04, u * 0.03);
@@ -400,10 +502,14 @@ export function drawAccessory(
     ctx.save();
     ctx.clip(g.clipCloth);
     ctx.fillStyle = co ?? g.dark;
-    ctx.fillRect(a.x - u * 1.6, a.y, u * 3.2, d * 0.8);
-    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = u * 0.035;
+    // fine: a slim belt that wraps with the body, the buckle sized to it
+    const bandD = g.fine ? Math.min(d * 0.8, u * 0.16) : d * 0.8;
+    if (g.fine) { wrapBand(ctx, a.x, a.y, a.y + bandD, u * 1.6, u * 0.07); ctx.fill(); }
+    else ctx.fillRect(a.x - u * 1.6, a.y, u * 3.2, bandD);
+    ctx.strokeStyle = hi; ctx.lineWidth = u * (g.fine ? 0.025 : 0.035);
     ctx.beginPath();
-    ctx.roundRect(a.x - u * 0.09, a.y + d * 0.183, u * 0.18, u * 0.13, u * 0.02);
+    if (g.fine) ctx.roundRect(a.x - u * 0.07, a.y + u * 0.07 + bandD * 0.5 - u * 0.05, u * 0.14, u * 0.1, u * 0.02);
+    else ctx.roundRect(a.x - u * 0.09, a.y + d * 0.183, u * 0.18, u * 0.13, u * 0.02);
     ctx.stroke();
     ctx.restore();
   } else if (name === "tophat") {
@@ -412,7 +518,7 @@ export function drawAccessory(
     ctx.fillStyle = co ?? g.dark;
     ctx.beginPath(); ctx.roundRect(-u * 0.52, -u * 0.075, u * 1.04, u * 0.1, u * 0.04); ctx.fill();
     ctx.beginPath(); ctx.roundRect(-u * 0.32, -u * 0.6, u * 0.64, u * 0.56, u * 0.035); ctx.fill();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.globalAlpha = 0.9;
     ctx.fillRect(-u * 0.32, -u * 0.2, u * 0.64, u * 0.075);
   } else if (name === "bowtie") {
@@ -434,7 +540,7 @@ export function drawAccessory(
     ctx.fillStyle = co ?? g.dark;
     ctx.beginPath(); ctx.ellipse(0, -u * 0.04, u * 0.5, u * 0.34, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.roundRect(-u * 0.52, -u * 0.08, u * 1.04, u * 0.12, u * 0.05); ctx.fill();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.beginPath(); ctx.arc(0, -u * 0.42, u * 0.07, 0, 7); ctx.fill();
   } else if (name === "santa") {
     // santa hat — red is the exception that makes it read; white brim + pom
@@ -446,7 +552,7 @@ export function drawAccessory(
     ctx.quadraticCurveTo(u * 0.42, -u * 0.44, u * 0.5, -u * 0.28);
     ctx.quadraticCurveTo(u * 0.32, -u * 0.3, u * 0.44, 0);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.beginPath(); ctx.roundRect(-u * 0.48, -u * 0.06, u * 0.96, u * 0.14, u * 0.06); ctx.fill();
     ctx.beginPath(); ctx.arc(u * 0.52, -u * 0.26, u * 0.085, 0, 7); ctx.fill();
   } else if (name === "witch") {
@@ -460,7 +566,7 @@ export function drawAccessory(
     ctx.quadraticCurveTo(u * 0.18, -u * 0.46, u * 0.12, -u * 0.62);
     ctx.quadraticCurveTo(u * 0.22, -u * 0.32, u * 0.3, -u * 0.02);
     ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.globalAlpha = 0.85;
     ctx.fillRect(-u * 0.045, -u * 0.14, u * 0.09, u * 0.07);
   } else if (name === "party") {
@@ -474,7 +580,7 @@ export function drawAccessory(
     for (const [dx, dy, r] of [[-0.06, -0.1, 0.035], [0.07, -0.2, 0.03], [-0.02, -0.32, 0.026]] as [number, number, number][]) {
       ctx.beginPath(); ctx.arc(u * dx, u * dy, u * r, 0, 7); ctx.fill();
     }
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = hi;
     ctx.beginPath(); ctx.arc(0, -u * 0.54, u * 0.06, 0, 7); ctx.fill();
   } else if (name === "mane") {
     // Doozy-style scalp band: a darker tint from the crown down to the eye
@@ -512,6 +618,24 @@ export function drawAccessory(
   } else if (name === "sunglasses") {
     // one dark visor band across both eyes + temple stubs + glint slash
     const { eyeCX, ringR } = g;
+    if (g.fine) {
+      // two shaped lenses on a fine bridge, so the face keeps its eyes' places and its
+      // character instead of disappearing behind one bar
+      const lw = ringR * 1.05, lh = ringR * 0.82;
+      ctx.fillStyle = co ?? g.dark; ctx.strokeStyle = co ?? g.dark;
+      ctx.lineWidth = u * 0.03; ctx.lineCap = "round";
+      for (const sgn of [-1, 1]) {
+        const x = a.x + sgn * eyeCX;
+        ctx.beginPath(); ctx.roundRect(x - lw, a.y - lh * 0.55, lw * 2, lh * 1.25, [lh * 0.35, lh * 0.35, lh * 0.7, lh * 0.7]); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x + sgn * lw, a.y - lh * 0.35); ctx.lineTo(sgn * u * 0.99, a.y - lh * 0.55); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(a.x - eyeCX + lw, a.y - lh * 0.3); ctx.quadraticCurveTo(a.x, a.y - lh * 0.6, a.x + eyeCX - lw, a.y - lh * 0.3); ctx.stroke();
+      // one soft reflection per lens
+      ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = u * 0.022;
+      for (const sgn of [-1, 1]) { const x = a.x + sgn * eyeCX; ctx.beginPath(); ctx.moveTo(x - lw * 0.5, a.y + lh * 0.2); ctx.lineTo(x - lw * 0.05, a.y - lh * 0.3); ctx.stroke(); }
+      ctx.restore();
+      return;
+    }
     const w = eyeCX + ringR * 1.15, h = ringR * 1.35;
     ctx.fillStyle = co ?? g.dark;
     ctx.beginPath();
@@ -531,8 +655,8 @@ export function drawAccessory(
     ctx.stroke();
   } else if (name === "glasses") {
     const { eyeCX, ringR } = g;
-    ctx.lineWidth = u * 0.05;
-    ctx.globalAlpha = 0.95;
+    ctx.lineWidth = u * (g.fine ? 0.032 : 0.05);
+    ctx.globalAlpha = g.fine ? 1 : 0.95;
     for (const sgn of [-1, 1]) {
       ctx.beginPath();
       ctx.arc(a.x + sgn * eyeCX, a.y, ringR, 0, 7);

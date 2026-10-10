@@ -154,11 +154,11 @@ describe("makeTheme (per-element)", () => {
 });
 
 describe("blob species", () => {
-  it("ships four bodies and species defaults to emblem (back-compat)", async () => {
+  it("ships eight bodies and species defaults to blob", async () => {
     const { BLOB_BODIES } = await import("../src/blob");
     const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
     expect(BLOB_BODIES).toEqual(["round", "droplet", "bean", "pebble", "squircle", "tri", "cloud", "hexy"]);
-    expect(DEFAULT_CONFIG.species).toBe("emblem");
+    expect(DEFAULT_CONFIG.species).toBe("blob");
     const c = resolveConfig({ species: "blob", body: "bean" });
     expect(c.species).toBe("blob");
     expect(c.body).toBe("bean");
@@ -166,12 +166,12 @@ describe("blob species", () => {
 });
 
 describe("blob eyes", () => {
-  it("six styles, googly default", async () => {
+  it("seven styles, slit default", async () => {
     const { BLOB_EYES } = await import("../src/blob");
     const { DEFAULT_CONFIG, resolveConfig } = await import("../src/config");
     expect(BLOB_EYES).toEqual(["googly", "slit", "glint", "dot", "arc", "ring", "lens"]);
-    expect(DEFAULT_CONFIG.eyes).toBe("googly");
-    expect(resolveConfig({ eyes: "slit" }).eyes).toBe("slit");
+    expect(DEFAULT_CONFIG.eyes).toBe("slit");
+    expect(resolveConfig({ eyes: "googly" }).eyes).toBe("googly");
   });
 });
 

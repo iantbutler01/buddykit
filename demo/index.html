@@ -91,6 +91,7 @@
         <button class="em" data-v="angry">angry</button>
         <button class="em" data-v="tired">tired</button>
         <button class="em" data-v="annoyed">annoyed</button>
+        <button class="em" data-v="dance">♪ dance</button>
       </div>
       <div class="g"><span class="l">Species</span>
         <button class="sp" data-v="emblem" aria-pressed="true">emblem</button>
@@ -183,6 +184,16 @@
         <button class="tr" data-v="0.35" aria-pressed="true">standard</button>
         <button class="tr" data-v="0.55">high</button>
       </div>
+      <div class="g"><span class="l">Finish</span>
+        <button class="fi" data-v="soft" aria-pressed="true">soft</button>
+        <button class="fi" data-v="pop">pop</button>
+        <button class="fi" data-v="crafted">crafted</button>
+        <button class="fi" data-v="light">light</button>
+        <span class="l">Accessory tone</span>
+        <button class="tn" data-v="" aria-pressed="true">own colours</button>
+        <button class="tn" data-v="#16181d">ink</button>
+        <button class="tn" data-v="#ffffff">white</button>
+      </div>
       <div class="g"><span class="l">Theme</span>
         <button class="th" data-v="ember" aria-pressed="true">ember</button>
         <button class="th" data-v="sumi">sumi</button>
@@ -191,6 +202,12 @@
         <button class="th" data-v="indigo">indigo</button>
         <button class="th" data-v="graphite">graphite</button>
         <button class="th" data-v="verdigris">verdigris</button>
+        <button class="th" data-v="pop-lime">pop lime</button>
+        <button class="th" data-v="pop-pink">pop pink</button>
+        <button class="th" data-v="pop-cobalt">pop cobalt</button>
+        <button class="th" data-v="pop-tangerine">pop tangerine</button>
+        <button class="th" data-v="pop-violet">pop violet</button>
+        <button class="th" data-v="pop-ink">pop ink</button>
         <input type="color" id="accent" value="#7c5cff" title="one-color theme — themeFromAccent()" style="width:34px;height:30px;border:1px solid var(--hairline);border-radius:8px;background:var(--paper);padding:2px;cursor:pointer">
         <button id="palette-toggle" title="per-element colors">🎨 elements</button>
       </div>
@@ -266,6 +283,10 @@
   press(".co", (v) => buddy.setCore(v));
   press(".tr", (v) => buddy.setTrust(parseFloat(v)));
   press(".th", (v) => { buddy.setTheme(v); syncPalette(); });
+  // a being of light is made for a dark ground
+  const stageFor = (f) => document.querySelector(".stage").style.background = f === "light" ? "#0b0b0f" : "";
+  press(".fi", (v) => { buddy.configure({ finish: v }); stageFor(v); });
+  press(".tn", (v) => buddy.configure({ accessoryTone: v || null }));
   document.getElementById("accent").addEventListener("input", (e) => {
     document.querySelectorAll(".th").forEach((x) => x.setAttribute("aria-pressed", "false"));
     buddy.configure({ theme: themeFromAccent(e.target.value) });
@@ -347,7 +368,7 @@
     ["scale", 0.4, 1.6], ["plateSize", 0.4, 1.8], ["coreSize", 0.5, 1.5],
     ["eyeSize", 0.5, 1.8], ["eyeSpacing", 0.4, 1.8], ["eyeRaise", -0.5, 2.5], ["eyeShift", -1, 1], ["eyeAngle", -90, 90], ["squareness", 0, 1], ["hardness", 0, 1], ["gradient", 0, 1], ["gravity", 0, 1], ["glow", 0, 2.5], ["sparkle", 0, 3],
     ["bob", 0, 2.5], ["tiltiness", 0, 2.5], ["spread", 0, 2],
-    ["speed", 0.2, 2.5], ["blinkRate", 0, 3], ["glanceRate", 0, 3],
+    ["speed", 0.2, 2.5], ["groove", 0, 1], ["blinkRate", 0, 3], ["glanceRate", 0, 3],
     ["trust", 0, 1],
   ];
   const sliders = document.getElementById("sliders");
@@ -375,7 +396,7 @@
     for (const [key] of TUNING) {
       buddy.configure({ accessoryColors: {} });
       renderAccColors();
-      const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "eyeAngle" || key === "squareness" || key === "hardness" || key === "gradient" ? 0 : 1;
+      const dv = key === "trust" ? 0.35 : key === "eyeShift" || key === "eyeAngle" || key === "squareness" || key === "hardness" || key === "gradient" || key === "groove" ? 0 : 1;
       patch[key] = dv;
       inputs[key][0].value = dv;
       inputs[key][1].textContent = dv.toFixed(2);
@@ -414,6 +435,12 @@
     { name: "Oracle",   cls: "Construct · d20 core, one lens",        cfg: { species: "blob", body: "round", eyes: "lens", hardness: 1, core: "d20", shell: true, family: "tetra", theme: "indigo", gravity: 0.9, gradient: 0.4, seed: 77 } },
     { name: "Quiet",    cls: "Blob · slit eyes, gravity 0.7",         cfg: { species: "blob", body: "pebble", eyes: "slit", theme: "#5b5763", gravity: 0.7, gradient: 0.3, seed: 31 } },
     { name: "Quire",    cls: "Ghost · codex shell, spine core",      cfg: { species: "emblem", family: "codex", core: "spine", theme: "slate", gravity: 0.7, seed: 11 } },
+    { name: "Iris",     cls: "Crafted · violet, glasses + mortarboard", cfg: { species: "blob", body: "bean", eyes: "slit", eyeSize: 0.78, hardness: 0.45, core: "d12", finish: "crafted", theme: "pop-violet", accessories: ["mortarboard", "glasses"], seed: 404 } },
+    { name: "Wren",     cls: "Light · cobalt, headset + tie",         cfg: { species: "blob", body: "hexy", eyes: "slit", eyeSize: 0.78, hardness: 0.7, core: "gem", finish: "light", theme: "pop-cobalt", accessories: ["headset", "tie"], seed: 303 } },
+    { name: "Juno",     cls: "Crafted · pink, sunglasses + scarf",    cfg: { species: "blob", body: "bean", eyes: "slit", eyeSize: 0.78, hardness: 0.35, squareness: 0.2, core: "gem", finish: "crafted", theme: "pop-pink", accessories: ["scarf", "sunglasses"], seed: 202 } },
+    { name: "Volt",     cls: "Pop · cobalt, white headset on neon",   cfg: { species: "blob", body: "hexy", eyes: "slit", eyeShift: 0.16, hardness: 0.7, core: "gem", finish: "pop", theme: "pop-cobalt", accessoryTone: "#ffffff", accessories: ["headset", "tie"], groove: 0.6, seed: 303 } },
+    { name: "Pixie",    cls: "Pop · pink, ink sunglasses + scarf",    cfg: { species: "blob", body: "bean", eyes: "slit", eyeShift: 0.16, hardness: 0.35, core: "gem", finish: "pop", theme: "pop-pink", accessoryTone: "#16181d", accessories: ["scarf", "sunglasses"], seed: 202 } },
+    { name: "Shadow",   cls: "Silhouette · ink body, white cap",      cfg: { species: "blob", body: "squircle", eyes: "slit", squareness: 0.35, hardness: 0.6, core: "cube", finish: "pop", theme: "pop-ink", accessoryTone: "#ffffff", accessories: ["hoodie", "cap"], groove: 1, seed: 101 } },
     { name: "Folio",    cls: "Ghost · fan shell, spine core",        cfg: { species: "emblem", family: "fan", core: "spine", theme: "verdigris", gravity: 0.35, seed: 6 } },
   ];
   const roster = document.getElementById("roster");
@@ -455,6 +482,9 @@
     pressGroup(".ey", cfg.eyes);
     pressGroup(".fam", cfg.family);
     pressGroup(".co", cfg.core);
+    pressGroup(".fi", cfg.finish);
+    stageFor(cfg.finish);
+    pressGroup(".tn", cfg.accessoryTone ?? "");
     document.querySelectorAll(".ac").forEach((b) =>
       b.setAttribute("aria-pressed", String(b.dataset.v === "none" ? cfg.accessories.length === 0 : cfg.accessories.includes(b.dataset.v))));
     ringchip.setAttribute("aria-pressed", String(!!cfg.shell));

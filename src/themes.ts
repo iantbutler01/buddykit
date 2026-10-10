@@ -58,6 +58,24 @@ const BUILTIN: Record<string, BuddyTheme> = {
 
 const registry = new Map<string, BuddyTheme>(Object.entries(BUILTIN));
 
+/** The near-black the pop palettes use for eyes, cloth and the silhouette body. */
+export const POP_INK = "#16181d";
+
+/**
+ * Pop hues: one pure colour per being, deep enough that white eyes and ink
+ * accessories both read on it (pair with finish: "pop"). "pop-ink" is the
+ * silhouette: an ink body whose cloth defaults to white — the iPod-ad figure.
+ */
+export const POP_HUES = {
+  "pop-lime": "#62c31b",
+  "pop-pink": "#ff3d8b",
+  "pop-cobalt": "#1e7bff",
+  "pop-tangerine": "#ff7a1a",
+  "pop-violet": "#8a4dff",
+  "pop-ink": POP_INK,
+} as const;
+for (const [name, hue] of Object.entries(POP_HUES)) registry.set(name, popTheme(hue));
+
 export function registerTheme(name: string, theme: BuddyTheme) {
   registry.set(name, theme);
 }
@@ -116,6 +134,38 @@ export function themeFromAccent(accent: string, opts: { neutral?: "warm" | "cool
     glow: `rgba(${a[0]},${a[1]},${a[2]},`,
     seam: `rgba(${Math.round(a[0] * 0.25)},${Math.round(a[1] * 0.25)},${Math.round(a[2] * 0.25)},.28)`,
   };
+}
+
+/**
+ * One saturated hue in → a pop palette out: the hue is the whole body, eyes and
+ * sparks are white, and cloth and pupils are ink — or white, when the hue itself
+ * is too dark for ink to read on (the silhouette).
+ *
+ *   mountBuddy(canvas, { finish: "pop", theme: popTheme("#ff3d8b") })
+ */
+export function popTheme(hue: string): BuddyTheme {
+  const a = hexToRgb(hue);
+  const ink = hexToRgb(POP_INK);
+  const white: [number, number, number] = [255, 255, 255];
+  const lum = (0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]) / 255;
+  const dark = lum < 0.18 ? "#ffffff" : POP_INK;
+  return {
+    face: mix(white, a, 0.1),
+    side: mix(white, a, 0.2),
+    edge: mix(a, ink, 0.25),
+    coreDisc: dark,
+    eyeHot: "#ffffff",
+    eye: "#ffffff",
+    accent: hue,
+    glow: `rgba(${a[0]},${a[1]},${a[2]},`,
+    seam: `rgba(${ink[0]},${ink[1]},${ink[2]},.28)`,
+  };
+}
+
+/** Blend two #rrggbb colours (t = 0 → a, 1 → b). Anything else comes back as a. */
+export function mixHex(a: string, b: string, t: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(a) || !/^#[0-9a-f]{6}$/i.test(b)) return a;
+  return mix(hexToRgb(a), hexToRgb(b), t);
 }
 
 /** Per-element color spec — plain hex everywhere; buddykit handles formats. */

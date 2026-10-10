@@ -12,10 +12,14 @@ import { accessoryRank, type AccessoryName } from "./accessories";
  *
  *   mountBuddy(canvas, { family: "petal", core: "d20", bob: 1.4, blinkRate: 2 })
  */
+/** Surface finish: how the being's body is made. See BuddyConfig.finish. */
+export type Finish = "soft" | "pop" | "crafted" | "light";
+export const FINISHES: Finish[] = ["soft", "pop", "crafted", "light"];
+
 export interface BuddyConfig {
   // ---- identity ----
   /** visual species: geometric emblem, two-eyed blob, or stacked-slab block
-   *  (default "emblem"). Everything else — hardness, shell ring, accessories —
+   *  (default "blob"). Everything else — hardness, shell ring, accessories —
    *  mixes freely. */
   species: "emblem" | "blob" | "block";
   /** orbit the emblem's plate shell around the blob body (default false) */
@@ -30,7 +34,7 @@ export interface BuddyConfig {
   body: BlobBody;
   /** slab proportions — block species (default "stout") */
   build: BlockBuild;
-  /** eye style — blob species (default "googly") */
+  /** eye style — blob species (default "slit") */
   eyes: BlobEyes;
   /** core body shape (default "sphere") */
   core: CoreShape;
@@ -39,7 +43,12 @@ export interface BuddyConfig {
   /** per-accessory primary-color overrides, e.g. { tie: "#d6453d" } — details
    *  (buckles, drawstrings, inner ears) keep their doctrine colors */
   accessoryColors: Partial<Record<AccessoryName, string>>;
-  /** registered theme name, or a raw BuddyTheme color object (default "ember") */
+  /** one primary colour for every accessory — the iPod-earbud signature (e.g. all
+   *  white on an ink body, all ink on a bright one). Per-accessory accessoryColors
+   *  still win, and details switch to whichever of ink or white contrasts with it.
+   *  null keeps each accessory's own doctrine colour (default null) */
+  accessoryTone: string | null;
+  /** registered theme name, or a raw BuddyTheme color object (default "pop-cobalt") */
   theme: ThemeInput;
   /** resting shell spread 0..1 — trust posture (strict .15 / standard .35 / high .55) */
   trust: number;
@@ -75,6 +84,20 @@ export interface BuddyConfig {
   glow: number;
   /** pixie-dust emission rate (0 = off) */
   sparkle: number;
+  /** surface finish (default "crafted"):
+   *  - "soft": the reference look — ambient glow, bloom, pixie dust, depth bevel,
+   *    facet lines and the gradient setting
+   *  - "pop": one flat colour with a crisp, still edge and nothing around it — the
+   *    bold-silhouette look. The edge ripple is off and the outline is smoothed, so
+   *    a half-hard body keeps its shape without the faceted kinks; glow, sparkle,
+   *    gradient, the depth bevel and facet lines are all off (blob species)
+   *  - "crafted": a made object — the same exact edge as pop, lit like soft-touch
+   *    plastic from above (luminous top, deep base, a thin inner rim of light) and
+   *    resting on a contact shadow. Eyes are ink with a catchlight
+   *  - "light": a being made of light — the colour glows from inside, brightest low
+   *    in the body, fading to a deep edge, with a soft halo of its own hue; eyes and
+   *    accessories are light too. Made for dark grounds */
+  finish: Finish;
 
   // ---- motion (multipliers, 1 = reference) ----
   /** hover bob amplitude */
@@ -85,6 +108,10 @@ export interface BuddyConfig {
   spread: number;
   /** global tempo — phase clocks and personality timers */
   speed: number;
+  /** idle dance 0..1 — a steady beat of hops, side-to-side sway and landing
+   *  squash layered over the idle bob (0 = off, default). fire("dance") plays the
+   *  full dance once whatever this is set to */
+  groove: number;
 
   // ---- personality cadence (multipliers, 1 = reference) ----
   /** blink frequency */
@@ -94,17 +121,18 @@ export interface BuddyConfig {
 }
 
 export const DEFAULT_CONFIG: BuddyConfig = {
-  species: "emblem",
+  species: "blob",
   shell: false,
   hardness: 0,
   family: "tetra",
   body: "round",
   build: "stout",
-  eyes: "googly",
+  eyes: "slit",
   core: "sphere",
   accessories: [],
   accessoryColors: {},
-  theme: "ember",
+  accessoryTone: null,
+  theme: "pop-cobalt",
   trust: 0.35,
   seed: 42,
 
@@ -121,11 +149,13 @@ export const DEFAULT_CONFIG: BuddyConfig = {
   gravity: 0,
   glow: 1,
   sparkle: 1,
+  finish: "crafted",
 
   bob: 1,
   tiltiness: 1,
   spread: 1,
   speed: 1,
+  groove: 0,
 
   blinkRate: 1,
   glanceRate: 1,
@@ -145,6 +175,9 @@ export function resolveConfig(partial: Partial<BuddyConfig> = {}): BuddyConfig {
   cfg.squareness = Math.max(0, Math.min(1, cfg.squareness));
   cfg.gradient = Math.max(0, Math.min(1, cfg.gradient));
   cfg.gravity = Math.max(0, Math.min(1, cfg.gravity));
+  cfg.groove = Math.max(0, Math.min(1, cfg.groove));
+  cfg.finish = FINISHES.includes(cfg.finish) ? cfg.finish : DEFAULT_CONFIG.finish;
+  cfg.accessoryTone = cfg.accessoryTone || null;
   cfg.accessoryColors = { ...cfg.accessoryColors };
   cfg.accessories = [...new Set(cfg.accessories)]
     .filter((a) => a !== "none")
