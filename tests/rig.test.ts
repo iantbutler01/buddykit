@@ -134,6 +134,11 @@ describe("raw themes", () => {
     const cfg = resolveConfig({ theme: raw });
     expect(resolveTheme(cfg.theme)).toBe(raw);
   });
+  it("a theme name this build doesn't know draws as ember instead of throwing", async () => {
+    const { resolveTheme, getTheme } = await import("../src/themes");
+    expect(resolveTheme("pop-from-the-future")).toBe(getTheme("ember"));
+    expect(() => getTheme("pop-from-the-future")).toThrow(/unknown theme/);
+  });
 });
 
 describe("makeTheme (per-element)", () => {

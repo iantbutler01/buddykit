@@ -97,11 +97,24 @@ export function themeNames(): string[] {
 /** Accept a registered name or a raw BuddyTheme object. */
 export type ThemeInput = string | BuddyTheme;
 
+const warnedUnknown = new Set<string>();
+
+/**
+ * Rendering never fails on a name this build doesn't know: a look saved by a newer
+ * buddykit (a hue added later) draws in "ember" instead of taking the app down.
+ * getTheme stays strict for callers that ask for a specific theme.
+ */
 export function resolveTheme(input: ThemeInput): BuddyTheme {
   if (typeof input !== "string") return input;
   // "#rrggbb" is sugar for themeFromAccent — one accent color is a full identity
   if (input.startsWith("#")) return themeFromAccent(input);
-  return getTheme(input);
+  const theme = registry.get(input);
+  if (theme) return theme;
+  if (!warnedUnknown.has(input)) {
+    warnedUnknown.add(input);
+    console.warn(`buddykit: unknown theme "${input}", drawing "ember"`);
+  }
+  return getTheme("ember");
 }
 
 function hexToRgb(hex: string): [number, number, number] {
