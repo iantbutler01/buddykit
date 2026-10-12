@@ -72,6 +72,10 @@ export const POP_HUES = {
   "pop-cobalt": "#1e7bff",
   "pop-tangerine": "#ff7a1a",
   "pop-violet": "#8a4dff",
+  // usenym.com's hues; its blue and lilac are cobalt and violet above.
+  "pop-coral": "#ff5b3a",
+  "pop-gold": "#ffae00",
+  "pop-green": "#26b257",
   "pop-ink": POP_INK,
 } as const;
 for (const [name, hue] of Object.entries(POP_HUES)) registry.set(name, popTheme(hue));
