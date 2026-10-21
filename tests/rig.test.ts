@@ -426,3 +426,42 @@ describe("accessory anchors", () => {
     expect(a.neck.rise).toBeGreaterThan(0);   // a blob has face above its collar; a block does not
   });
 });
+
+describe("mountBuddy sizing", () => {
+  it("a window resize that leaves the canvas's own size alone does not erase it", async () => {
+    const { mountBuddy } = await import("../src/rig");
+    const g = globalThis as Record<string, unknown>;
+    const saved = ["addEventListener", "removeEventListener", "requestAnimationFrame", "cancelAnimationFrame"].map((k) => [k, g[k]] as const);
+    const listeners = new Map<string, () => void>();
+    g.addEventListener = (name: string, listener: () => void) => { listeners.set(name, listener); };
+    g.removeEventListener = () => {};
+    g.requestAnimationFrame = () => 1;
+    g.cancelAnimationFrame = () => {};
+    let sizings = 0;
+    const box = { w: 120, h: 120 };
+    const backing = { width: 0, height: 0 };
+    const noop = (): unknown => new Proxy(() => {}, { get: () => noop, apply: () => noop() });
+    const canvas = {
+      get clientWidth() { return box.w; },
+      get clientHeight() { return box.h; },
+      get width() { return backing.width; },
+      set width(value: number) { sizings++; backing.width = value; },
+      get height() { return backing.height; },
+      set height(value: number) { sizings++; backing.height = value; },
+      getContext: () => noop(),
+    } as unknown as HTMLCanvasElement;
+    try {
+      const handle = mountBuddy(canvas, { reducedMotion: false });
+      const afterMount = sizings;
+      listeners.get("resize")?.();
+      listeners.get("resize")?.();
+      expect(sizings, "an unchanged canvas is not resized, so not erased").toBe(afterMount);
+      box.w = 200;
+      listeners.get("resize")?.();
+      expect(sizings, "a canvas whose box changed is refitted").toBe(afterMount + 2);
+      handle.destroy();
+    } finally {
+      for (const [k, v] of saved) g[k] = v;
+    }
+  });
+});

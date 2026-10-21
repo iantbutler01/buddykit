@@ -91,9 +91,15 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   let state: BuddyState = "idle";
   const blobPhase = (opts.seed ?? 42) % 6.283;
 
+  // Sizing a canvas erases it, even to the size it already has: a window resize that left this
+  // canvas's own box alone (a host window dragged by its edge fires dozens a second) must not
+  // touch it, or the figure strobes between erased and redrawn.
+  let fitted = { w: -1, h: -1 };
   function fit() {
     const w = canvas.clientWidth || canvas.width;
     const h = canvas.clientHeight || canvas.height;
+    if (w === fitted.w && h === fitted.h) return;
+    fitted = { w, h };
     canvas.width = Math.max(1, w * DPR);
     canvas.height = Math.max(1, h * DPR);
   }
