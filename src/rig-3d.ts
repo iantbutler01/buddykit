@@ -13,7 +13,7 @@ import type { BuddyState } from './states';
 export interface Buddy3DOptions extends BuddyMountOptions {
   /** Turn in radians; positive faces toward the content to the right. */
   turn?: number;
-  shading?: "cel" | "smooth";
+  shading?: "cel" | "smooth" | "flat";
   lightPosition?: [number, number, number];
   ambientIntensity?: number;
   celTones?: [number, number, number];
@@ -52,7 +52,9 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     character.rotation.set(0, 0, 0);
     character.updateMatrixWorld(true);
     const color = new Color(resolveTheme(config.theme).accent);
-    const material = options.shading === "smooth"
+    const material = options.shading === "flat"
+      ? new MeshBasicMaterial({ color })
+      : options.shading === "smooth"
       ? new MeshLambertMaterial({ color })
       : new MeshToonMaterial({ color, gradientMap: tones });
     const body = new Mesh(blobGeometry(config), material);
