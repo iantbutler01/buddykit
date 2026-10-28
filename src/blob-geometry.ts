@@ -27,11 +27,12 @@ export function blobGeometry(config: BuddyConfig): BufferGeometry {
   const normalize = 2 / Math.max(width, height);
   const vertices: number[] = [], indices: number[] = [];
   const rings = 40, count = contour.length;
+  const halfDepth = 0.26;
   for (let row = 0; row <= rings; row++) {
     const angle = -Math.PI / 2 + Math.PI * row / rings;
     const size = Math.pow(Math.max(0.00001, Math.cos(angle)), 0.38);
     const sine = Math.sin(angle);
-    const z = Math.sign(sine) * Math.pow(Math.abs(sine), 0.38) * 0.62;
+    const z = Math.sign(sine) * Math.pow(Math.abs(sine), 0.38) * halfDepth;
     for (const [x, y] of contour) vertices.push(x * size * normalize, y * size * normalize, z);
   }
   for (let row = 0; row < rings; row++) for (let i = 0; i < count; i++) {
@@ -41,9 +42,9 @@ export function blobGeometry(config: BuddyConfig): BufferGeometry {
   }
   // Close both poles explicitly; a near-zero ring alone leaves a raycast hole.
   const back = vertices.length / 3;
-  vertices.push(0, 0, -0.62);
+  vertices.push(0, 0, -halfDepth);
   const front = vertices.length / 3;
-  vertices.push(0, 0, 0.62);
+  vertices.push(0, 0, halfDepth);
   for (let i = 0; i < count; i++) {
     const next = (i + 1) % count;
     indices.push(i, next, back);
