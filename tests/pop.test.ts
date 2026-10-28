@@ -166,7 +166,7 @@ describe("made finishes (crafted, light)", () => {
     expect(exactSquareness("bean", 1, 1)).toBeLessThanOrEqual(1);
     // only the bodies whose bumps are the shape keep them
     expect(exactKeepsBumps("cloud")).toBe(true);
-    expect(exactKeepsBumps("bean")).toBe(false);
+    expect(exactKeepsBumps("bean")).toBe(true);
   });
   it("an exact bean without bumps is symmetric left to right", () => {
     const pts = recordOutline("bean", 100, 0, 0, 0, 0.05, 0, "sphere", 0, 2, false);

@@ -31,12 +31,14 @@ export interface BuddyMountOptions extends Partial<BuddyConfig> {
   /** render a single static frame; re-render on changes */
   reducedMotion?: boolean;
   dprCap?: number;
+  figureShare?: number;
   onState?: (s: BuddyState) => void;
 }
 
 export interface BuddyHandle {
   setState(s: BuddyState): void;
   getState(): BuddyState;
+  setGaze?(x: number, y: number): void;
   /**
    * The damper on needs_you, 0..1. At 1 the ask is fresh: the full wave, hop and double pulse.
    * As the app lets it decay the wave, hop, pulse and sparkle fade and the eyes settle toward
@@ -673,9 +675,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         // soft-touch plastic lit from above: luminous top, true colour through the
         // middle, a deeper base
         const body = ctx.createLinearGradient(0, topY, 0, botY);
-        body.addColorStop(0, mixHex(T.accent, "#ffffff", 0.2));
+        body.addColorStop(0, mixHex(T.accent, "#ffffff", 0.06));
         body.addColorStop(0.55, T.accent);
-        body.addColorStop(1, mixHex(T.accent, "#000000", 0.24));
+        body.addColorStop(1, mixHex(T.accent, "#000000", 0.12));
         ctx.fillStyle = body; ctx.fill(bodyPath);
         // a thin inner rim of light where the surface turns away
         ctx.save(); ctx.clip(bodyPath);

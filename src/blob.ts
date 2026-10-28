@@ -83,11 +83,14 @@ function staticProfile(body: BlobBody, squareness: number, bumps = true): Float6
 const EXACT_SQUARE: Record<BlobBody, number> = {
   round: 0, droplet: 0.02, bean: 0.045, pebble: 0.02, squircle: 0.16, tri: 0.04, cloud: 0.03, hexy: 0.04,
 };
-const EXACT_KEEPS_BUMPS: ReadonlySet<BlobBody> = new Set(["droplet", "tri", "cloud"]);
+const EXACT_KEEPS_BUMPS: ReadonlySet<BlobBody> = new Set(["droplet", "bean", "pebble", "tri", "cloud", "hexy"]);
 
 /** The exact silhouette's squareness for a body (see EXACT_SQUARE). */
 export function exactSquareness(body: BlobBody, squareness: number, hardness: number): number {
-  return Math.min(1, EXACT_SQUARE[body] + hardness * 0.05 + squareness * 0.4);
+  // The squircle owns the strong square treatment; applying it equally to
+  // every body erases the round, bean, pebble and lobed silhouettes.
+  const squareInfluence = body === "squircle" ? 0.4 : 0.08;
+  return Math.min(1, EXACT_SQUARE[body] + hardness * 0.05 + squareness * squareInfluence);
 }
 
 /** Whether a body's exact silhouette keeps its bumps. */
@@ -133,7 +136,17 @@ export function traceBlob(
   const base = staticProfile(body, squareness, bumps);
   const cores = hardness > 0 ? coreProfile(core) : null;
   const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
-  const kx = sx * (1 + squash * 0.5), ky = sy * (1 - squash);
+  // Constrain only the resting aspect ratio, preserving each body's contour
+  // and leaving expressive squash/stretch free to animate around it.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i < N; i++) {
+    const x = COS[i] * base[i] * sx, y = SIN[i] * base[i] * sy;
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  const ratio = (maxX - minX) / (maxY - minY);
+  const widthScale = Math.max(0.88, Math.min(1.18, ratio)) / ratio;
+  const kx = sx * widthScale * (1 + squash * 0.5), ky = sy * (1 - squash);
   const wob = def.wobble * soft * wobble;
   const pts: [number, number][] = [];
   for (let i = 0; i < N; i++) {
