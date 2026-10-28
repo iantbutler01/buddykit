@@ -37,7 +37,8 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   camera.lookAt(0, 0, 0);
   scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? BLOB_PRESENTATION.ambientIntensity));
   const key = new DirectionalLight(0xffffff, options.lightIntensity ?? BLOB_PRESENTATION.lightIntensity);
-  key.position.set(...(options.lightPosition ?? BLOB_PRESENTATION.lightPosition));
+  const [lightX, lightY, lightZ] = options.lightPosition ?? BLOB_PRESENTATION.lightPosition;
+  key.position.set(lightX, lightY, lightZ);
   scene.add(key);
   const tones = new DataTexture(new Uint8Array(options.celTones ?? [70, 165, 255]), 3, 1, RedFormat, UnsignedByteType);
   tones.minFilter = tones.magFilter = NearestFilter;
