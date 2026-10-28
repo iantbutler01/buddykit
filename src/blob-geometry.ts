@@ -28,11 +28,11 @@ export function blobGeometry(config: BuddyConfig): BufferGeometry {
   const vertices: number[] = [], indices: number[] = [];
   const rings = 40, count = contour.length;
   const halfDepth = 0.26;
+  const cornerRadius = 0.10;
   for (let row = 0; row <= rings; row++) {
     const angle = -Math.PI / 2 + Math.PI * row / rings;
-    const size = Math.pow(Math.max(0.00001, Math.cos(angle)), 0.38);
-    const sine = Math.sin(angle);
-    const z = Math.sign(sine) * Math.pow(Math.abs(sine), 0.38) * halfDepth;
+    const size = 1 - cornerRadius + cornerRadius * Math.cos(angle);
+    const z = Math.sign(angle) * (halfDepth - cornerRadius + cornerRadius * Math.sin(Math.abs(angle)));
     for (const [x, y] of contour) vertices.push(x * size * normalize, y * size * normalize, z);
   }
   for (let row = 0; row < rings; row++) for (let i = 0; i < count; i++) {
@@ -40,7 +40,7 @@ export function blobGeometry(config: BuddyConfig): BufferGeometry {
     const c = a + count, d = b + count;
     indices.push(a, c, b, b, c, d);
   }
-  // Close both poles explicitly; a near-zero ring alone leaves a raycast hole.
+  // Cap the inset front and back contours with planar faces.
   const back = vertices.length / 3;
   vertices.push(0, 0, -halfDepth);
   const front = vertices.length / 3;
