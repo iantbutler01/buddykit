@@ -1,6 +1,6 @@
 import {
   AmbientLight, CapsuleGeometry, Color, DataTexture, DirectionalLight, Group, Mesh, MeshBasicMaterial,
-  MeshToonMaterial, NearestFilter, NoColorSpace, NoToneMapping, OrthographicCamera,
+  MeshLambertMaterial, MeshToonMaterial, NearestFilter, NoColorSpace, NoToneMapping, OrthographicCamera,
   Raycaster, RedFormat, Scene, SRGBColorSpace, UnsignedByteType,
   Vector3, WebGLRenderer,
 } from 'three';
@@ -13,6 +13,10 @@ import type { BuddyState } from './states';
 export interface Buddy3DOptions extends BuddyMountOptions {
   /** Turn in radians; positive faces toward the content to the right. */
   turn?: number;
+  shading?: "cel" | "smooth";
+  lightPosition?: [number, number, number];
+  ambientIntensity?: number;
+  celTones?: [number, number, number];
 }
 
 /** Local 3D renderer prototype: the same blob contours, real depth and cel lighting. */
@@ -25,11 +29,11 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   const camera = new OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 20);
   camera.position.set(0, 0.12, 6);
   camera.lookAt(0, 0, 0);
-  scene.add(new AmbientLight(0xffffff, 0.7));
+  scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? 0.7));
   const key = new DirectionalLight(0xffffff, 2.8);
-  key.position.set(-3, 3, 6);
+  key.position.set(...(options.lightPosition ?? [-3, 3, 6]));
   scene.add(key);
-  const tones = new DataTexture(new Uint8Array([70, 165, 255]), 3, 1, RedFormat, UnsignedByteType);
+  const tones = new DataTexture(new Uint8Array(options.celTones ?? [70, 165, 255]), 3, 1, RedFormat, UnsignedByteType);
   tones.minFilter = tones.magFilter = NearestFilter;
   tones.colorSpace = NoColorSpace;
   tones.needsUpdate = true;
@@ -47,7 +51,10 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     }
     character.rotation.set(0, 0, 0);
     character.updateMatrixWorld(true);
-    const material = new MeshToonMaterial({ color: new Color(resolveTheme(config.theme).accent), gradientMap: tones });
+    const color = new Color(resolveTheme(config.theme).accent);
+    const material = options.shading === "smooth"
+      ? new MeshLambertMaterial({ color })
+      : new MeshToonMaterial({ color, gradientMap: tones });
     const body = new Mesh(blobGeometry(config), material);
     character.add(body);
     body.updateMatrixWorld(true);
