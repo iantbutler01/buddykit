@@ -673,9 +673,9 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
         // soft-touch plastic lit from above: luminous top, true colour through the
         // middle, a deeper base
         const body = ctx.createLinearGradient(0, topY, 0, botY);
-        body.addColorStop(0, mixHex(T.accent, "#ffffff", 0.2));
+        body.addColorStop(0, mixHex(T.accent, "#ffffff", 0.06));
         body.addColorStop(0.55, T.accent);
-        body.addColorStop(1, mixHex(T.accent, "#000000", 0.24));
+        body.addColorStop(1, mixHex(T.accent, "#000000", 0.12));
         ctx.fillStyle = body; ctx.fill(bodyPath);
         // a thin inner rim of light where the surface turns away
         ctx.save(); ctx.clip(bodyPath);
