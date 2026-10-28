@@ -23,14 +23,16 @@ interface BodyDef {
   wobble: number;
 }
 
+// Keep resting body proportions near square; silhouette details carry identity,
+// rather than stretching the face into a wide slab or a tall pillar.
 const BODIES: Record<BlobBody, BodyDef> = {
   round:   { sx: 1,    sy: 1,    bumps: [], wobble: 0.01 },
-  droplet: { sx: 0.92, sy: 1.05, bumps: [[-90, 0.30, 0.55]], wobble: 0.008 },
-  bean:    { sx: 1.22, sy: 0.88, bumps: [[-90, -0.08, 0.8]], wobble: 0.009 },
-  pebble:  { sx: 1.1,  sy: 0.94, bumps: [[-40, 0.07, 0.9], [140, 0.05, 0.8]], wobble: 0.013 },
+  droplet: { sx: 1.02, sy: 1.0, bumps: [[-90, 0.14, 0.55]], wobble: 0.008 },
+  bean:    { sx: 1.06, sy: 0.98, bumps: [[-90, -0.08, 0.8]], wobble: 0.009 },
+  pebble:  { sx: 1.04, sy: 0.98, bumps: [[-40, 0.07, 0.9], [140, 0.05, 0.8]], wobble: 0.013 },
   squircle:{ sx: 1.02, sy: 0.98, bumps: [[-45, 0.12, 0.55], [45, 0.12, 0.55], [135, 0.12, 0.55], [225, 0.12, 0.55]], wobble: 0.007 },
   tri:     { sx: 1.05, sy: 0.95, bumps: [[-90, 0.3, 0.65], [30, 0.26, 0.65], [150, 0.26, 0.65]], wobble: 0.008 },
-  cloud:   { sx: 1.18, sy: 0.9,  bumps: [[-115, 0.13, 0.42], [-65, 0.16, 0.42], [-15, 0.12, 0.4], [-160, 0.1, 0.4]], wobble: 0.009 },
+  cloud:   { sx: 1.05, sy: 0.99,  bumps: [[-115, 0.13, 0.42], [-65, 0.16, 0.42], [-15, 0.12, 0.4], [-160, 0.1, 0.4]], wobble: 0.009 },
   hexy:    { sx: 1.0,  sy: 0.96, bumps: [[-90, 0.12, 0.45], [-30, 0.12, 0.45], [30, 0.12, 0.45], [90, 0.12, 0.45], [150, 0.12, 0.45], [210, 0.12, 0.45]], wobble: 0.007 },
 };
 
