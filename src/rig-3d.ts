@@ -1,15 +1,16 @@
 import {
-  AmbientLight, CapsuleGeometry, Color, DataTexture, DirectionalLight, Group, Mesh, MeshBasicMaterial,
+  AmbientLight, Color, DataTexture, DirectionalLight, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshToonMaterial, NearestFilter, NoColorSpace, NoToneMapping, OrthographicCamera,
-  Raycaster, RedFormat, Scene, SRGBColorSpace, UnsignedByteType,
-  Vector3, WebGLRenderer,
+  RedFormat, Scene, SRGBColorSpace, UnsignedByteType,
+  WebGLRenderer,
 } from 'three';
 import { accessoryMeshes } from './accessories-3d';
 import { blobGeometry } from './blob-geometry';
 import { resolveConfig, type BuddyConfig } from './config';
 import { resolveTheme } from './themes';
 import type { BuddyHandle, BuddyMountOptions } from './rig';
-import type { BuddyState } from './states';
+import { EMOTES, type BuddyEvent, type BuddyState } from './states';
+import { createFace } from './face-3d';
 
 export interface Buddy3DOptions extends BuddyMountOptions {
   /** Turn in radians; positive faces toward the content to the right. */
@@ -45,10 +46,10 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   scene.add(character);
   let config = resolveConfig(options), state: BuddyState = 'idle';
   let attention = 1, disposed = false, frame = 0;
-  let eyes: Group;
-  const eyeGeometry = new CapsuleGeometry(1, 2.48, 12, 24);
-  const ink = new MeshBasicMaterial({ color: 0x16181d });
+  let face: ReturnType<typeof createFace> | undefined;
+  let emote: BuddyEvent | null = null, emoteStarted = 0, lastFrame = 0;
   function rebuild() {
+    face?.dispose();
     for (const child of [...character.children]) {
       character.remove(child);
       if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshBasicMaterial).map?.dispose(); (child.material as MeshToonMaterial).dispose(); }
@@ -65,20 +66,8 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     character.add(body);
     body.updateMatrixWorld(true);
     for (const accessory of accessoryMeshes(config, body.geometry)) character.add(accessory);
-    eyes = new Group();
-    character.add(eyes);
-    const ray = new Raycaster();
-    for (const side of [-1, 1]) {
-      const x = side * 0.24 * config.eyeSpacing + config.eyeShift * 0.15;
-      const y = 0.16 * config.eyeRaise;
-      ray.set(new Vector3(x, y, 3), new Vector3(0, 0, -1));
-      const hit = ray.intersectObject(body)[0];
-      const eye = new Mesh(eyeGeometry, ink);
-      eye.scale.set(0.058 * config.eyeSize, 0.058 * config.eyeSize, 0.024);
-      eye.position.set(x, y, (hit?.point.z ?? 0.62) + 0.014);
-      if (hit?.face) eye.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), hit.face.normal);
-      eyes.add(eye);
-    }
+    face = createFace(body, config);
+    character.add(face.group);
   }
   function render(time = 0) {
     if (disposed) return;
@@ -89,12 +78,24 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     camera.left = -framing * aspect; camera.right = framing * aspect;
     camera.top = framing; camera.bottom = -framing; camera.updateProjectionMatrix();
     const animated = !(options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches);
-    const tiltPhase = time / 1400;
+    const now = time || performance.now();
+    const delta = lastFrame ? Math.min((now - lastFrame) / 1000, .1) : .016;
+    lastFrame = now;
+    const duration = emote === 'flare' ? 1.1 : emote ? EMOTES[emote] : 0;
+    const elapsed = (now - emoteStarted) / 1000;
+    if (emote && elapsed > duration) emote = null;
+    const weight = emote ? Math.min(1, elapsed / .12, (duration - elapsed) / .18) : 0;
+    const blinkPhase = now % 4700;
+    const blink = animated && blinkPhase < 150 ? Math.max(.1, Math.abs(blinkPhase - 75) / 75) : 1;
+    face?.update(state, emote, weight, blink, animated ? 1 - Math.exp(-delta * 16) : 1, attention);
+    const tiltPhase = now / 1400;
     character.rotation.x = (options.tilt ?? 0) + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
     character.rotation.y = (options.turn ?? 0.48) + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
-    character.rotation.z = state === 'listening' ? -0.025 : 0;
+    character.rotation.z = state === 'listening' ? -.07 : 0;
+    if (emote === 'nod') character.rotation.x += Math.sin(elapsed * 12) * .15 * weight;
+    if (emote === 'shake') character.rotation.y += Math.sin(elapsed * 14) * .18 * weight;
+    if (emote === 'joy') character.rotation.z += Math.sin(elapsed * 8) * .04 * weight;
     character.position.y = animated && !options.animateTilt ? Math.sin(time / 1400) * 0.018 * config.bob : 0;
-    eyes.scale.y = state === 'away' ? 0.12 : state === 'working' ? 0.7 : state === 'needs_you' ? 1 + 0.12 * attention : 1;
     renderer.render(scene, camera);
     if (animated) frame = requestAnimationFrame(render);
   }
@@ -106,7 +107,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     setState(next) { state = next; options.onState?.(next); refresh(); },
     getState: () => state,
     setAttention(value) { attention = Math.max(0, Math.min(1, value)); refresh(); },
-    fire() { refresh(); },
+    fire(event) { emote = event; emoteStarted = performance.now(); refresh(); },
     configure,
     getConfig: () => ({ ...config }),
     setTheme: theme => configure({ theme }),
@@ -116,7 +117,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     destroy() {
       disposed = true; cancelAnimationFrame(frame); resize.disconnect();
       for (const child of character.children) if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshBasicMaterial).map?.dispose(); (child.material as MeshToonMaterial).dispose(); }
-      eyeGeometry.dispose(); ink.dispose(); tones.dispose(); renderer.dispose();
+      face?.dispose(); tones.dispose(); renderer.dispose();
     },
   };
 }

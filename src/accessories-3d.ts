@@ -20,14 +20,15 @@ export function accessoryMeshes(config: BuddyConfig, body: BufferGeometry): Mesh
     switch(name) {
       case 'none': break;
       case 'glasses': case 'monocle': case 'sunglasses': {
+        const lens = .23 * config.eyeSize;
         for(const sign of name==='monocle'?[1]:[-1,1]) {
           const x=sign*ex+config.eyeShift*.15;
-          if(name==='sunglasses') s.ball(x,ey,front+.025,.19,.14,.045);
-          else s.ring(x,ey,front+.025,.17,.022);
-          s.tube([[x+sign*.17,ey,front+.025],[sign*.72,ey+.015,front],[sign*.87,ey+.015,-.02]],.018);
+          if(name==='sunglasses') s.ball(x,ey,front+.035,lens*1.06,lens*.92,.045);
+          else s.ring(x,ey,front+.035,lens,.022);
+          s.tube([[x+sign*lens,ey,front+.035],[sign*.72,ey+.015,front],[sign*.87,ey+.015,-.02]],.018);
         }
-        if(name!=='monocle') s.tube([[-ex+.16,ey+.035,front+.025],[0,ey+.065,front+.035],[ex-.16,ey+.035,front+.025]],.018);
-        else s.tube([[ex+.14,ey-.10,front+.025],[.55,-.17,front+.04],[.43,chest,front+.025]],.012);
+        if(name!=='monocle') s.tube([[-ex+lens,ey+.035,front+.035],[0,ey+.065,front+.045],[ex-lens,ey+.035,front+.035]],.018);
+        else s.tube([[ex+lens*.75,ey-lens*.7,front+.035],[.55,-.17,front+.04],[.43,chest,front+.025]],.012);
         break;
       }
       case 'headset':
