@@ -67,15 +67,15 @@ export const POP_INK = "#16181d";
  * silhouette: an ink body whose cloth defaults to white — the iPod-ad figure.
  */
 export const POP_HUES = {
-  "pop-lime": "#62c31b",
-  "pop-pink": "#ff3d8b",
-  "pop-cobalt": "#1e7bff",
-  "pop-tangerine": "#ff7a1a",
-  "pop-violet": "#8a4dff",
+  "pop-lime": "#70d220",
+  "pop-pink": "#ff3a87",
+  "pop-cobalt": "#2885ff",
+  "pop-tangerine": "#ff6a00",
+  "pop-violet": "#7044ff",
   // usenym.com's hues; its blue and lilac are cobalt and violet above.
-  "pop-coral": "#ff5b3a",
-  "pop-gold": "#ffae00",
-  "pop-green": "#26b257",
+  "pop-coral": "#ff4b23",
+  "pop-gold": "#ffc300",
+  "pop-green": "#22c74a",
   "pop-ink": POP_INK,
 } as const;
 for (const [name, hue] of Object.entries(POP_HUES)) registry.set(name, popTheme(hue));
@@ -158,7 +158,7 @@ export function themeFromAccent(accent: string, opts: { neutral?: "warm" | "cool
  * sparks are white, and cloth and pupils are ink — or white, when the hue itself
  * is too dark for ink to read on (the silhouette).
  *
- *   mountBuddy(canvas, { finish: "pop", theme: popTheme("#ff3d8b") })
+ *   mountBuddy(canvas, { finish: "pop", theme: popTheme("#ff3a87") })
  */
 export function popTheme(hue: string): BuddyTheme {
   const a = hexToRgb(hue);
