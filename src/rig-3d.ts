@@ -92,8 +92,8 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     gazeX += (targetX - gazeX) * (animated ? 1 - Math.exp(-delta * 10) : 1);
     gazeY += (targetY - gazeY) * (animated ? 1 - Math.exp(-delta * 10) : 1);
     const tiltPhase = now / 1400;
-    character.rotation.x = (options.tilt ?? -.06) + gazeY * .25 + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
-    character.rotation.y = (options.turn ?? .45) + gazeX * .45 + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
+    character.rotation.x = (options.tilt ?? -.06) + gazeY * .45 + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
+    character.rotation.y = (options.turn ?? .45) + gazeX * .8 + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
     character.rotation.z = state === 'listening' ? -.07 : 0;
     if (emote === 'nod') character.rotation.x += Math.sin(elapsed * 12) * .15 * weight;
     if (emote === 'shake') character.rotation.y += Math.sin(elapsed * 14) * .18 * weight;
