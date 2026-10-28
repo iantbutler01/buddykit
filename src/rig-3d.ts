@@ -1,7 +1,7 @@
 import {
-  AmbientLight, Color, DataTexture, DirectionalLight, Group, Mesh, MeshBasicMaterial,
+  AmbientLight, CapsuleGeometry, Color, DataTexture, DirectionalLight, Group, Mesh, MeshBasicMaterial,
   MeshToonMaterial, NearestFilter, NoColorSpace, NoToneMapping, OrthographicCamera,
-  Raycaster, RedFormat, Scene, SphereGeometry, SRGBColorSpace, UnsignedByteType,
+  Raycaster, RedFormat, Scene, SRGBColorSpace, UnsignedByteType,
   Vector3, WebGLRenderer,
 } from 'three';
 import { blobGeometry } from './blob-geometry';
@@ -38,7 +38,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   let config = resolveConfig(options), state: BuddyState = 'idle';
   let attention = 1, disposed = false, frame = 0;
   let eyes: Group;
-  const sphere = new SphereGeometry(1, 32, 20);
+  const eyeGeometry = new CapsuleGeometry(1, 2.48, 12, 24);
   const ink = new MeshBasicMaterial({ color: 0x16181d });
   function rebuild() {
     for (const child of [...character.children]) {
@@ -59,8 +59,8 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
       const y = 0.16 * config.eyeRaise;
       ray.set(new Vector3(x, y, 3), new Vector3(0, 0, -1));
       const hit = ray.intersectObject(body)[0];
-      const eye = new Mesh(sphere, ink);
-      eye.scale.set(0.058 * config.eyeSize, 0.13 * config.eyeSize, 0.024);
+      const eye = new Mesh(eyeGeometry, ink);
+      eye.scale.set(0.058 * config.eyeSize, 0.058 * config.eyeSize, 0.024);
       eye.position.set(x, y, (hit?.point.z ?? 0.62) + 0.014);
       if (hit?.face) eye.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), hit.face.normal);
       eyes.add(eye);
@@ -99,7 +99,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     destroy() {
       disposed = true; cancelAnimationFrame(frame); resize.disconnect();
       for (const child of character.children) if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshToonMaterial).dispose(); }
-      sphere.dispose(); ink.dispose(); tones.dispose(); renderer.dispose();
+      eyeGeometry.dispose(); ink.dispose(); tones.dispose(); renderer.dispose();
     },
   };
 }
