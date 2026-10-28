@@ -2,6 +2,7 @@ import type { BufferGeometry, Mesh } from 'three';
 import type { BuddyConfig } from './config';
 import { AccessorySolids } from './accessory-solids';
 import { buildHeadwear } from './accessory-headwear';
+import { buildHeadset } from './accessory-headset';
 
 /** Solid accessories share the same body coordinates, so pitch and yaw reveal their volume. */
 export function accessoryMeshes(config: BuddyConfig, body: BufferGeometry): Mesh[] {
@@ -30,10 +31,7 @@ export function accessoryMeshes(config: BuddyConfig, body: BufferGeometry): Mesh
         break;
       }
       case 'headset':
-        s.tube([[-.91,ey-.10,0],[-.89,top*.65,0],[-.50,top+.035,0],[0,top+.09,0],[.50,top+.035,0],[.89,top*.65,0],[.91,ey-.10,0]],.04);
-        for(const sign of [-1,1]) s.ball(sign*.92,ey-.12,0,.075,.17,.15);
-        s.tube([[-.92,ey-.24,0],[-.85,ey-.45,.30],[-.38,ey-.43,.40]],.025);
-        s.ball(-.34,ey-.43,.40,.065,.045,.05); break;
+        buildHeadset(s,body,ey,front); break;
       case 'tie':
         s.plate([[-.07,chest+.12],[.07,chest+.12],[.05,chest],[0,chest-.04],[-.05,chest]],front,.045);
         s.plate([[0,chest+.015],[.11,chest-.30],[0,chest-.39],[-.11,chest-.30]],front,.045); break;
