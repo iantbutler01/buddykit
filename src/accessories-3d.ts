@@ -3,31 +3,34 @@ import type { BuddyConfig } from './config';
 import { AccessorySolids } from './accessory-solids';
 import { buildHeadwear } from './accessory-headwear';
 import { buildHeadset } from './accessory-headset';
+import { faceLayout } from './face-layout';
 
 /** Solid accessories share the same body coordinates, so pitch and yaw reveal their volume. */
 export function accessoryMeshes(config: BuddyConfig, body: BufferGeometry): Mesh[] {
   body.computeBoundingBox();
   const bounds = body.boundingBox!;
   const top = bounds.max.y, bottom = bounds.min.y, front = bounds.max.z+.025;
+  const face = faceLayout(config);
   const white='#fff4dc', ink='#242326';
   return config.accessories.flatMap(name => {
     const defaultColor = name==='hardhat'?'#ffd13a':name==='santa'?'#e33142':ink;
     const color=config.accessoryColors[name] ?? config.accessoryTone ?? defaultColor;
     const s=new AccessorySolids(name,color);
     if(buildHeadwear(s,name,top)) return s.meshes;
-    const ey=.16*config.eyeRaise, ex=.24*config.eyeSpacing;
+    const ey=face.centerY, ex=face.halfSpacing;
     const neck=bottom*.44, chest=bottom*.5;
     switch(name) {
       case 'none': break;
       case 'glasses': case 'monocle': case 'sunglasses': {
-        const lens = .23 * config.eyeSize;
+        const lens = face.lensRadius;
+        const lensWidth = lens * .76;
         for(const sign of name==='monocle'?[1]:[-1,1]) {
-          const x=sign*ex+config.eyeShift*.15;
-          if(name==='sunglasses') s.ball(x,ey,front+.035,lens*1.06,lens*.92,.045);
-          else s.ring(x,ey,front+.035,lens,.022);
-          s.tube([[x+sign*lens,ey,front+.035],[sign*.72,ey+.015,front],[sign*.87,ey+.015,-.02]],.018);
+          const x=sign*ex+face.centerX;
+          if(name==='sunglasses') s.ball(x,ey,front+.035,lensWidth*1.06,lens*.92,.045);
+          else s.ring(x,ey,front+.035,lens,.022).scale.x = .76;
+          s.tube([[x+sign*lensWidth,ey,front+.035],[sign*.72,ey+.015,front],[sign*.87,ey+.015,-.02]],.018);
         }
-        if(name!=='monocle') s.tube([[-ex+lens,ey+.035,front+.035],[0,ey+.065,front+.045],[ex-lens,ey+.035,front+.035]],.018);
+        if(name!=='monocle') s.tube([[-ex+lensWidth,ey+.035,front+.035],[0,ey+.065,front+.045],[ex-lensWidth,ey+.035,front+.035]],.018);
         else s.tube([[ex+lens*.75,ey-lens*.7,front+.035],[.55,-.17,front+.04],[.43,chest,front+.025]],.012);
         break;
       }

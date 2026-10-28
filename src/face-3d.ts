@@ -1,10 +1,12 @@
 import { CapsuleGeometry, CatmullRomCurve3, Group, Mesh, MeshBasicMaterial, Raycaster, TubeGeometry, Vector3 } from 'three';
 import type { BuddyConfig } from './config';
+import { faceLayout } from './face-layout';
 import type { BuddyEvent, BuddyState } from './states';
 
 /** Pill eyes and curved pleased eyes share the same positions on the body's face. */
 export function createFace(body: Mesh, config: BuddyConfig) {
   const group = new Group();
+  const layout = faceLayout(config);
   const ink = new MeshBasicMaterial({ color: 0x16181d });
   const pill = new CapsuleGeometry(1, 2.48, 12, 24);
   const curve = new TubeGeometry(new CatmullRomCurve3([
@@ -13,13 +15,13 @@ export function createFace(body: Mesh, config: BuddyConfig) {
   ]), 20, .24, 8, false);
   const ray = new Raycaster();
   const entries = [-1, 1].map(side => {
-    const x = side * .24 * config.eyeSpacing + config.eyeShift * .15, y = .16 * config.eyeRaise;
+    const x = side * layout.halfSpacing + layout.centerX, y = layout.centerY;
     ray.set(new Vector3(x, y, 3), new Vector3(0, 0, -1));
     const hit = ray.intersectObject(body)[0];
     const mount = new Group(); mount.position.set(x, y, (hit?.point.z ?? .26) + .018);
     if (hit?.face) mount.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), hit.face.normal);
     const eye = new Mesh(pill, ink), smile = new Mesh(curve, ink);
-    smile.scale.setScalar(.13 * config.eyeSize); smile.visible = false;
+    smile.scale.setScalar(.20 * config.eyeSize); smile.visible = false;
     mount.add(eye, smile); group.add(mount);
     return { eye, smile, side };
   });
@@ -38,7 +40,7 @@ export function createFace(body: Mesh, config: BuddyConfig) {
     const pleased = event === 'joy' && eventWeight > .18;
     for (const {eye, smile, side} of entries) {
       const asymmetric = state === 'listening' && side === -1 ? 1.1 : 1;
-      eye.scale.set(.082 * config.eyeSize * width, .082 * config.eyeSize * openness * asymmetric * blink, .026);
+      eye.scale.set(layout.pillScale * width, layout.pillScale * openness * asymmetric * blink, .026);
       eye.quaternion.setFromAxisAngle(new Vector3(0, 0, 1), slant * side);
       eye.visible = !pleased; smile.visible = pleased;
     }
