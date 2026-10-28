@@ -23,16 +23,14 @@ interface BodyDef {
   wobble: number;
 }
 
-// Keep resting body proportions near square; silhouette details carry identity,
-// rather than stretching the face into a wide slab or a tall pillar.
 const BODIES: Record<BlobBody, BodyDef> = {
   round:   { sx: 1,    sy: 1,    bumps: [], wobble: 0.01 },
-  droplet: { sx: 1.02, sy: 1.0, bumps: [[-90, 0.14, 0.55]], wobble: 0.008 },
-  bean:    { sx: 1.06, sy: 0.98, bumps: [[-90, -0.08, 0.8]], wobble: 0.009 },
-  pebble:  { sx: 1.04, sy: 0.98, bumps: [[-40, 0.07, 0.9], [140, 0.05, 0.8]], wobble: 0.013 },
+  droplet: { sx: 0.92, sy: 1.05, bumps: [[-90, 0.30, 0.55]], wobble: 0.008 },
+  bean:    { sx: 1.22, sy: 0.88, bumps: [[-90, -0.08, 0.8]], wobble: 0.009 },
+  pebble:  { sx: 1.1,  sy: 0.94, bumps: [[-40, 0.07, 0.9], [140, 0.05, 0.8]], wobble: 0.013 },
   squircle:{ sx: 1.02, sy: 0.98, bumps: [[-45, 0.12, 0.55], [45, 0.12, 0.55], [135, 0.12, 0.55], [225, 0.12, 0.55]], wobble: 0.007 },
   tri:     { sx: 1.05, sy: 0.95, bumps: [[-90, 0.3, 0.65], [30, 0.26, 0.65], [150, 0.26, 0.65]], wobble: 0.008 },
-  cloud:   { sx: 1.05, sy: 0.99,  bumps: [[-115, 0.13, 0.42], [-65, 0.16, 0.42], [-15, 0.12, 0.4], [-160, 0.1, 0.4]], wobble: 0.009 },
+  cloud:   { sx: 1.18, sy: 0.9,  bumps: [[-115, 0.13, 0.42], [-65, 0.16, 0.42], [-15, 0.12, 0.4], [-160, 0.1, 0.4]], wobble: 0.009 },
   hexy:    { sx: 1.0,  sy: 0.96, bumps: [[-90, 0.12, 0.45], [-30, 0.12, 0.45], [30, 0.12, 0.45], [90, 0.12, 0.45], [150, 0.12, 0.45], [210, 0.12, 0.45]], wobble: 0.007 },
 };
 
@@ -85,11 +83,14 @@ function staticProfile(body: BlobBody, squareness: number, bumps = true): Float6
 const EXACT_SQUARE: Record<BlobBody, number> = {
   round: 0, droplet: 0.02, bean: 0.045, pebble: 0.02, squircle: 0.16, tri: 0.04, cloud: 0.03, hexy: 0.04,
 };
-const EXACT_KEEPS_BUMPS: ReadonlySet<BlobBody> = new Set(["droplet", "tri", "cloud"]);
+const EXACT_KEEPS_BUMPS: ReadonlySet<BlobBody> = new Set(["droplet", "bean", "pebble", "tri", "cloud", "hexy"]);
 
 /** The exact silhouette's squareness for a body (see EXACT_SQUARE). */
 export function exactSquareness(body: BlobBody, squareness: number, hardness: number): number {
-  return Math.min(1, EXACT_SQUARE[body] + hardness * 0.05 + squareness * 0.4);
+  // The squircle owns the strong square treatment; applying it equally to
+  // every body erases the round, bean, pebble and lobed silhouettes.
+  const squareInfluence = body === "squircle" ? 0.4 : 0.08;
+  return Math.min(1, EXACT_SQUARE[body] + hardness * 0.05 + squareness * squareInfluence);
 }
 
 /** Whether a body's exact silhouette keeps its bumps. */
@@ -135,7 +136,17 @@ export function traceBlob(
   const base = staticProfile(body, squareness, bumps);
   const cores = hardness > 0 ? coreProfile(core) : null;
   const sx = def.sx + (1 - def.sx) * hardness, sy = def.sy + (1 - def.sy) * hardness;
-  const kx = sx * (1 + squash * 0.5), ky = sy * (1 - squash);
+  // Constrain only the resting aspect ratio, preserving each body's contour
+  // and leaving expressive squash/stretch free to animate around it.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i < N; i++) {
+    const x = COS[i] * base[i] * sx, y = SIN[i] * base[i] * sy;
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  const ratio = (maxX - minX) / (maxY - minY);
+  const widthScale = Math.max(0.88, Math.min(1.18, ratio)) / ratio;
+  const kx = sx * widthScale * (1 + squash * 0.5), ky = sy * (1 - squash);
   const wob = def.wobble * soft * wobble;
   const pts: [number, number][] = [];
   for (let i = 0; i < N; i++) {

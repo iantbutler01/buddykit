@@ -14,8 +14,8 @@ it('keeps resting crafted silhouettes within the same proportion family', () => 
         exactSquareness(body, squareness, 0), 0, 'sphere', 0, 0, exactKeepsBumps(body));
       const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
       const ratio = (Math.max(...xs) - Math.min(...xs)) / (Math.max(...ys) - Math.min(...ys));
-      expect(ratio, `${body} at squareness ${squareness}`).toBeGreaterThanOrEqual(0.88);
-      expect(ratio, `${body} at squareness ${squareness}`).toBeLessThanOrEqual(1.18);
+      expect(ratio, `${body} at squareness ${squareness}`).toBeGreaterThanOrEqual(0.88 - 1e-10);
+      expect(ratio, `${body} at squareness ${squareness}`).toBeLessThanOrEqual(1.18 + 1e-10);
     }
   }
 });
