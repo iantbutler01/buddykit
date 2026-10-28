@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/three": "^0.186.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
@@ -34,5 +35,8 @@
     "type": "git",
     "url": "git+https://github.com/iantbutler01/buddykit.git"
   },
-  "homepage": "https://github.com/iantbutler01/buddykit"
+  "homepage": "https://github.com/iantbutler01/buddykit",
+  "dependencies": {
+    "three": "^0.186.1"
+  }
 }

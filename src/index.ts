@@ -23,3 +23,6 @@ export { REST_POSE, posture, gestures, LimbRig } from "./block-limbs";
 export type { BlockPose, ArmPose, LegPose, HeadPose, PoseInput, Gestures } from "./block-limbs";
 export { drawLens } from "./lens";
 export type { LensParams } from "./lens";
+
+export { mountBuddy3D } from "./rig-3d";
+export type { Buddy3DOptions } from "./rig-3d";
