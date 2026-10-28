@@ -11,6 +11,7 @@ import { resolveTheme } from './themes';
 import type { BuddyHandle, BuddyMountOptions } from './rig';
 import { EMOTES, type BuddyEvent, type BuddyState } from './states';
 import { createFace } from './face-3d';
+import { BLOB_PRESENTATION, blobPose } from './blob-presentation';
 
 export interface Buddy3DOptions extends BuddyMountOptions {
   /** Turn in radians; positive faces toward the content to the right. */
@@ -34,9 +35,9 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   const camera = new OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 20);
   camera.position.set(0, 0.12, 6);
   camera.lookAt(0, 0, 0);
-  scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? 1.85));
-  const key = new DirectionalLight(0xffffff, options.lightIntensity ?? 1.3);
-  key.position.set(...(options.lightPosition ?? [4, 3, 6]));
+  scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? BLOB_PRESENTATION.ambientIntensity));
+  const key = new DirectionalLight(0xffffff, options.lightIntensity ?? BLOB_PRESENTATION.lightIntensity);
+  key.position.set(...(options.lightPosition ?? BLOB_PRESENTATION.lightPosition));
   scene.add(key);
   const tones = new DataTexture(new Uint8Array(options.celTones ?? [70, 165, 255]), 3, 1, RedFormat, UnsignedByteType);
   tones.minFilter = tones.magFilter = NearestFilter;
@@ -46,6 +47,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   scene.add(character);
   let config = resolveConfig(options), state: BuddyState = 'idle';
   let attention = 1, disposed = false, frame = 0;
+  const motionStarted = performance.now();
   let gazeX = 0, gazeY = 0, targetX = 0, targetY = 0;
   let face: ReturnType<typeof createFace> | undefined;
   let emote: BuddyEvent | null = null, emoteStarted = 0, lastFrame = 0;
@@ -92,8 +94,9 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     gazeX += (targetX - gazeX) * (animated ? 1 - Math.exp(-delta * 10) : 1);
     gazeY += (targetY - gazeY) * (animated ? 1 - Math.exp(-delta * 10) : 1);
     const tiltPhase = now / 1400;
-    character.rotation.x = (options.tilt ?? -.06) + gazeY * .45 + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
-    character.rotation.y = (options.turn ?? .45) + gazeX * .8 + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
+    const pose = blobPose(animated && (options.animateTilt ?? true) ? Math.max(0, now - motionStarted) / 1000 : 0);
+    character.rotation.x = (options.tilt ?? pose.tilt) + gazeY * .45 + (animated && options.animateTilt && options.tilt !== undefined ? Math.sin(tiltPhase) * 0.20 : 0);
+    character.rotation.y = (options.turn ?? pose.turn) + gazeX * .8 + (animated && options.animateTilt && options.turn !== undefined ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
     character.rotation.z = state === 'listening' ? -.07 : 0;
     if (emote === 'nod') character.rotation.x += Math.sin(elapsed * 12) * .15 * weight;
     if (emote === 'shake') character.rotation.y += Math.sin(elapsed * 14) * .18 * weight;

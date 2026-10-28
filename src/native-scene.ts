@@ -4,6 +4,7 @@ import { resolveTheme } from './themes';
 import { blobGeometry } from './blob-geometry';
 import { accessoryMeshes } from './accessories-3d';
 import { createFace } from './face-3d';
+import { BLOB_PRESENTATION } from './blob-presentation';
 
 /** Same geometry/materials as the browser, serialized for native scene rendering. */
 export function nativeBuddyScene(input: Partial<BuddyConfig>) {
@@ -27,5 +28,5 @@ export function nativeBuddyScene(input: Partial<BuddyConfig>) {
   });
   root.traverse(node => { if (node instanceof Mesh) { node.geometry.dispose(); (node.material as MeshLambertMaterial).dispose(); } });
   face.dispose();
-  return { framing: config.accessories.length ? 1.85 : 1.45, meshes };
+  return { presentation: BLOB_PRESENTATION, framing: config.accessories.length ? 1.85 : 1.45, meshes };
 }
