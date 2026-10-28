@@ -4,6 +4,7 @@ import {
   Raycaster, RedFormat, Scene, SRGBColorSpace, UnsignedByteType,
   Vector3, WebGLRenderer,
 } from 'three';
+import { accessoryMeshes } from './accessories-3d';
 import { blobGeometry } from './blob-geometry';
 import { resolveConfig, type BuddyConfig } from './config';
 import { resolveTheme } from './themes';
@@ -50,7 +51,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   function rebuild() {
     for (const child of [...character.children]) {
       character.remove(child);
-      if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshToonMaterial).dispose(); }
+      if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshBasicMaterial).map?.dispose(); (child.material as MeshToonMaterial).dispose(); }
     }
     character.rotation.set(0, 0, 0);
     character.updateMatrixWorld(true);
@@ -63,6 +64,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     const body = new Mesh(blobGeometry(config), material);
     character.add(body);
     body.updateMatrixWorld(true);
+    for (const accessory of accessoryMeshes(config, body.geometry)) character.add(accessory);
     eyes = new Group();
     character.add(eyes);
     const ray = new Raycaster();
@@ -83,8 +85,9 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     const w = canvas.clientWidth || canvas.width, h = canvas.clientHeight || canvas.height;
     renderer.setSize(w, h, false);
     const aspect = w / h;
-    camera.left = -1.45 * aspect; camera.right = 1.45 * aspect;
-    camera.top = 1.45; camera.bottom = -1.45; camera.updateProjectionMatrix();
+    const framing = config.accessories.length ? 1.85 : 1.45;
+    camera.left = -framing * aspect; camera.right = framing * aspect;
+    camera.top = framing; camera.bottom = -framing; camera.updateProjectionMatrix();
     const animated = !(options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches);
     const tiltPhase = time / 1400;
     character.rotation.x = (options.tilt ?? 0) + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
@@ -112,7 +115,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     setTrust: trust => configure({ trust }),
     destroy() {
       disposed = true; cancelAnimationFrame(frame); resize.disconnect();
-      for (const child of character.children) if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshToonMaterial).dispose(); }
+      for (const child of character.children) if (child instanceof Mesh) { child.geometry.dispose(); (child.material as MeshBasicMaterial).map?.dispose(); (child.material as MeshToonMaterial).dispose(); }
       eyeGeometry.dispose(); ink.dispose(); tones.dispose(); renderer.dispose();
     },
   };
