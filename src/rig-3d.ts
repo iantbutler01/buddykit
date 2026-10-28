@@ -13,6 +13,8 @@ import type { BuddyState } from './states';
 export interface Buddy3DOptions extends BuddyMountOptions {
   /** Turn in radians; positive faces toward the content to the right. */
   turn?: number;
+  tilt?: number;
+  animateTilt?: boolean;
   shading?: "cel" | "smooth" | "flat";
   lightPosition?: [number, number, number];
   ambientIntensity?: number;
@@ -83,9 +85,11 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     camera.left = -1.45 * aspect; camera.right = 1.45 * aspect;
     camera.top = 1.45; camera.bottom = -1.45; camera.updateProjectionMatrix();
     const animated = !(options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches);
-    character.rotation.y = options.turn ?? 0.48;
+    const tiltPhase = time / 1400;
+    character.rotation.x = (options.tilt ?? 0) + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
+    character.rotation.y = (options.turn ?? 0.48) + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
     character.rotation.z = state === 'listening' ? -0.025 : 0;
-    character.position.y = animated ? Math.sin(time / 1400) * 0.018 * config.bob : 0;
+    character.position.y = animated && !options.animateTilt ? Math.sin(time / 1400) * 0.018 * config.bob : 0;
     eyes.scale.y = state === 'away' ? 0.12 : state === 'working' ? 0.7 : state === 'needs_you' ? 1 + 0.12 * attention : 1;
     renderer.render(scene, camera);
     if (animated) frame = requestAnimationFrame(render);
