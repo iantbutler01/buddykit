@@ -2,7 +2,7 @@ import { BufferGeometry, Float32BufferAttribute } from 'three';
 import { traceBlob, exactKeepsBumps, exactSquareness } from './blob';
 import type { BuddyConfig } from './config';
 
-/** Revolve depth around the existing 2D outline; keep its silhouette as the equator. */
+/** Rounded extrusion of the existing outline, with broad faces and soft shoulders. */
 export function blobGeometry(config: BuddyConfig): BufferGeometry {
   const contour: Array<[number, number]> = [];
   let current: [number, number] = [0, 0];
@@ -29,8 +29,9 @@ export function blobGeometry(config: BuddyConfig): BufferGeometry {
   const rings = 40, count = contour.length;
   for (let row = 0; row <= rings; row++) {
     const angle = -Math.PI / 2 + Math.PI * row / rings;
-    const size = Math.pow(Math.max(0.00001, Math.cos(angle)), 0.55);
-    const z = Math.sin(angle) * 0.62;
+    const size = Math.pow(Math.max(0.00001, Math.cos(angle)), 0.38);
+    const sine = Math.sin(angle);
+    const z = Math.sign(sine) * Math.pow(Math.abs(sine), 0.38) * 0.62;
     for (const [x, y] of contour) vertices.push(x * size * normalize, y * size * normalize, z);
   }
   for (let row = 0; row < rings; row++) for (let i = 0; i < count; i++) {

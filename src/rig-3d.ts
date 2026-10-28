@@ -18,6 +18,7 @@ export interface Buddy3DOptions extends BuddyMountOptions {
   shading?: "cel" | "smooth" | "flat";
   lightPosition?: [number, number, number];
   ambientIntensity?: number;
+  lightIntensity?: number;
   celTones?: [number, number, number];
 }
 
@@ -32,7 +33,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   camera.position.set(0, 0.12, 6);
   camera.lookAt(0, 0, 0);
   scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? 0.7));
-  const key = new DirectionalLight(0xffffff, 2.8);
+  const key = new DirectionalLight(0xffffff, options.lightIntensity ?? 2.8);
   key.position.set(...(options.lightPosition ?? [-3, 3, 6]));
   scene.add(key);
   const tones = new DataTexture(new Uint8Array(options.celTones ?? [70, 165, 255]), 3, 1, RedFormat, UnsignedByteType);
