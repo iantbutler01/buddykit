@@ -31,12 +31,14 @@ export interface BuddyMountOptions extends Partial<BuddyConfig> {
   /** render a single static frame; re-render on changes */
   reducedMotion?: boolean;
   dprCap?: number;
+  figureShare?: number;
   onState?: (s: BuddyState) => void;
 }
 
 export interface BuddyHandle {
   setState(s: BuddyState): void;
   getState(): BuddyState;
+  setGaze?(x: number, y: number): void;
   /**
    * The damper on needs_you, 0..1. At 1 the ask is fresh: the full wave, hop and double pulse.
    * As the app lets it decay the wave, hop, pulse and sparkle fade and the eyes settle toward

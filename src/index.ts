@@ -1,5 +1,5 @@
 export { Spring } from "./spring";
-export { mountBuddy, renderPosterPng } from "./rig";
+export { mountBuddy, renderPosterPng } from "./presentation";
 export type { BuddyMountOptions, BuddyHandle } from "./rig";
 export { DEFAULT_CONFIG, resolveConfig } from "./config";
 export type { BuddyConfig } from "./config";
@@ -26,3 +26,5 @@ export type { LensParams } from "./lens";
 
 export { mountBuddy3D } from "./rig-3d";
 export type { Buddy3DOptions } from "./rig-3d";
+
+export { nativeBuddyScene } from './native-scene';

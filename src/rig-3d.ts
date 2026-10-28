@@ -34,9 +34,9 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   const camera = new OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 20);
   camera.position.set(0, 0.12, 6);
   camera.lookAt(0, 0, 0);
-  scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? 0.7));
-  const key = new DirectionalLight(0xffffff, options.lightIntensity ?? 2.8);
-  key.position.set(...(options.lightPosition ?? [-3, 3, 6]));
+  scene.add(new AmbientLight(0xffffff, options.ambientIntensity ?? 1.85));
+  const key = new DirectionalLight(0xffffff, options.lightIntensity ?? 1.3);
+  key.position.set(...(options.lightPosition ?? [4, 3, 6]));
   scene.add(key);
   const tones = new DataTexture(new Uint8Array(options.celTones ?? [70, 165, 255]), 3, 1, RedFormat, UnsignedByteType);
   tones.minFilter = tones.magFilter = NearestFilter;
@@ -46,6 +46,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   scene.add(character);
   let config = resolveConfig(options), state: BuddyState = 'idle';
   let attention = 1, disposed = false, frame = 0;
+  let gazeX = 0, gazeY = 0, targetX = 0, targetY = 0;
   let face: ReturnType<typeof createFace> | undefined;
   let emote: BuddyEvent | null = null, emoteStarted = 0, lastFrame = 0;
   function rebuild() {
@@ -59,7 +60,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     const color = new Color(resolveTheme(config.theme).accent);
     const material = options.shading === "flat"
       ? new MeshBasicMaterial({ color })
-      : options.shading === "smooth"
+      : options.shading !== "cel"
       ? new MeshLambertMaterial({ color })
       : new MeshToonMaterial({ color, gradientMap: tones });
     const body = new Mesh(blobGeometry(config), material);
@@ -74,7 +75,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     const w = canvas.clientWidth || canvas.width, h = canvas.clientHeight || canvas.height;
     renderer.setSize(w, h, false);
     const aspect = w / h;
-    const framing = config.accessories.length ? 1.85 : 1.45;
+    const framing = options.figureShare ? 1 / options.figureShare : config.accessories.length ? 1.85 : 1.45;
     camera.left = -framing * aspect; camera.right = framing * aspect;
     camera.top = framing; camera.bottom = -framing; camera.updateProjectionMatrix();
     const animated = !(options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -88,9 +89,11 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
     const blinkPhase = now % 4700;
     const blink = animated && blinkPhase < 150 ? Math.max(.1, Math.abs(blinkPhase - 75) / 75) : 1;
     face?.update(state, emote, weight, blink, animated ? 1 - Math.exp(-delta * 16) : 1, attention);
+    gazeX += (targetX - gazeX) * (animated ? 1 - Math.exp(-delta * 10) : 1);
+    gazeY += (targetY - gazeY) * (animated ? 1 - Math.exp(-delta * 10) : 1);
     const tiltPhase = now / 1400;
-    character.rotation.x = (options.tilt ?? 0) + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
-    character.rotation.y = (options.turn ?? 0.48) + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
+    character.rotation.x = (options.tilt ?? -.06) + gazeY * .25 + (animated && options.animateTilt ? Math.sin(tiltPhase) * 0.20 : 0);
+    character.rotation.y = (options.turn ?? .45) + gazeX * .45 + (animated && options.animateTilt ? Math.sin(tiltPhase * 0.7) * 0.24 : 0);
     character.rotation.z = state === 'listening' ? -.07 : 0;
     if (emote === 'nod') character.rotation.x += Math.sin(elapsed * 12) * .15 * weight;
     if (emote === 'shake') character.rotation.y += Math.sin(elapsed * 14) * .18 * weight;
@@ -106,6 +109,7 @@ export function mountBuddy3D(canvas: HTMLCanvasElement, options: Buddy3DOptions 
   return {
     setState(next) { state = next; options.onState?.(next); refresh(); },
     getState: () => state,
+    setGaze(x, y) { targetX = Math.max(-1, Math.min(1, x)); targetY = Math.max(-1, Math.min(1, y)); if (options.reducedMotion) refresh(); },
     setAttention(value) { attention = Math.max(0, Math.min(1, value)); refresh(); },
     fire(event) { emote = event; emoteStarted = performance.now(); refresh(); },
     configure,
