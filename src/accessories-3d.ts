@@ -23,11 +23,11 @@ export function accessoryMeshes(config: BuddyConfig, body: BufferGeometry): Mesh
       case 'none': break;
       case 'glasses': case 'monocle': case 'sunglasses': {
         const lens = face.lensRadius;
-        const lensWidth = lens * .76;
+        const lensWidth = lens;
         for(const sign of name==='monocle'?[1]:[-1,1]) {
           const x=sign*ex+face.centerX;
           if(name==='sunglasses') s.ball(x,ey,front+.035,lensWidth*1.06,lens*.92,.045);
-          else s.ring(x,ey,front+.035,lens,.022).scale.x = .76;
+          else s.ring(x,ey,front+.035,lens,.022);
           s.tube([[x+sign*lensWidth,ey,front+.035],[sign*.72,ey+.015,front],[sign*.87,ey+.015,-.02]],.018);
         }
         if(name!=='monocle') s.tube([[-ex+lensWidth,ey+.035,front+.035],[0,ey+.065,front+.045],[ex-lensWidth,ey+.035,front+.035]],.018);

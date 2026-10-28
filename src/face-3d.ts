@@ -21,7 +21,7 @@ export function createFace(body: Mesh, config: BuddyConfig) {
     const mount = new Group(); mount.position.set(x, y, (hit?.point.z ?? .26) + .018);
     if (hit?.face) mount.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), hit.face.normal);
     const eye = new Mesh(pill, ink), smile = new Mesh(curve, ink);
-    smile.scale.setScalar(.20 * config.eyeSize); smile.visible = false;
+    smile.scale.setScalar(.13 * config.eyeSize); smile.visible = false;
     mount.add(eye, smile); group.add(mount);
     return { eye, smile, side };
   });
