@@ -13,5 +13,10 @@ export async function renderPosterPng(options: BuddyMountOptions & { size?: numb
   const handle = mountBuddy3D(canvas, { ...options, reducedMotion: true, dprCap: 1 });
   handle.setState(options.state ?? 'idle');
   try { return await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Unable to render Nym portrait')), 'image/png')); }
-  finally { handle.destroy(); }
+  finally {
+    handle.destroy();
+    // A poster owns a disposable offscreen canvas. Free its context as well as
+    // its GL objects so a grid of previews cannot evict the live character.
+    canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+  }
 }
