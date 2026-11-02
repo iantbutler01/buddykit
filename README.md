@@ -71,6 +71,19 @@ A buddy is deterministic from its config: `getConfig()` → JSON →
 `mountBuddy(canvas, cfg)` reproduces the identical character. `renderPosterPng`
 exports a static frame.
 
+### Rendering lifecycle
+
+Live blob characters draw at most 30 frames per second. They pause while their
+canvas is outside the viewport or the document is hidden, and resume automatically.
+Repeated state/attention values do not request extra frames. Canvas dimensions and
+camera projection are updated only when their inputs change; calling Three.js
+`setSize` on every frame resets its drawing buffer even at an unchanged size.
+
+`reducedMotion: true` keeps rendering synchronous for static previews and poster
+exports. Detached canvases retain their initial logical dimensions at the chosen
+pixel density. Call `destroy()` when removing a character to release its animation,
+observers, and WebGL resources.
+
 Demo: `npm install && npm run dev`.
 
 License: Apache-2.0
