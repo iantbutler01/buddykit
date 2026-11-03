@@ -96,11 +96,17 @@ export function mountBuddy(canvas: HTMLCanvasElement, opts: BuddyMountOptions = 
   // Sizing a canvas erases it, even to the size it already has: a window resize that left this
   // canvas's own box alone (a host window dragged by its edge fires dozens a second) must not
   // touch it, or the figure strobes between erased and redrawn.
+  // Keep logical dimensions separate from the backing buffer. A hidden canvas
+  // reports zero client size; its backing size already includes DPR.
+  let logicalWidth = canvas.clientWidth || canvas.width;
+  let logicalHeight = canvas.clientHeight || canvas.height;
   let fitted = { w: -1, h: -1 };
   function fit() {
-    const w = canvas.clientWidth || canvas.width;
-    const h = canvas.clientHeight || canvas.height;
+    const w = canvas.clientWidth || logicalWidth;
+    const h = canvas.clientHeight || logicalHeight;
     if (w === fitted.w && h === fitted.h) return;
+    logicalWidth = w;
+    logicalHeight = h;
     fitted = { w, h };
     canvas.width = Math.max(1, w * DPR);
     canvas.height = Math.max(1, h * DPR);

@@ -84,6 +84,17 @@ exports. Detached canvases retain their initial logical dimensions at the chosen
 pixel density. Call `destroy()` when removing a character to release its animation,
 observers, and WebGL resources.
 
+All species retain their logical dimensions while hidden. Window resize events
+must not multiply a hidden canvas's backing dimensions by its pixel density.
+Run the real-browser lifecycle regression with an installed Playwright runtime:
+
+```sh
+PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node tests/render-lifecycle.mjs
+```
+
+It checks 2x-density hidden/resumed/resized canvases for block, emblem, and blob
+characters, including a visible drawing after resuming.
+
 Demo: `npm install && npm run dev`.
 
 License: Apache-2.0
